@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>Ultimate Online Casino</title>
+<script src="/socket.io/socket.io.js"></script>
+<style>
+/* あなたのオリジナルデザインを完全復元 */
+:root{
+    --bg:#050510;
+    --accent:#0ff;
+    --accent2:#ff00ff;
+    --panel:#0b0b1a;
+    --text:#e0ffff;
+}
+*{ box-sizing:border-box; }
+body{
+    margin:0;
+    min-height:100vh;
+    background: radial-gradient(circle at top, #202040 0, #050510 55%, #000 100%);
+    font-family: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    color:var(--text);
+    text-align:center;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+}
+header{ padding:25px 10px 10px; }
+h1{
+    margin:0; font-size:2.6rem; letter-spacing:0.15em;
+    text-shadow: 0 0 10px var(--accent), 0 0 25px var(--accent2), 0 0 40px #fff;
+}
+h1 span{ display:inline-block; transform:skewX(-8deg); }
+#chipBar{
+    margin-top:10px; display:inline-flex; align-items:center; gap:10px; padding:6px 14px;
+    border-radius:999px; background:linear-gradient(90deg,rgba(0,255,255,0.15),rgba(255,0,255,0.15));
+    border:1px solid rgba(0,255,255,0.5); box-shadow:0 0 15px rgba(0,255,255,0.4); font-weight:bold;
+}
+#chips{ font-size:1.4rem; color:#fff; text-shadow:0 0 8px var(--accent); }
+
+main{ width:100%; max-width:1100px; padding:10px 15px 40px; display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:20px; }
+
+.section{
+    position:relative; background:radial-gradient(circle at top left,#1a1a3a,#050510 60%);
+    border-radius:18px; padding:18px 16px 20px; border:1px solid rgba(0,255,255,0.4);
+    box-shadow: 0 0 25px rgba(0,255,255,0.25), 0 0 40px rgba(255,0,255,0.15); overflow:hidden;
+}
+.section-title{ display:flex; justify-content:center; align-items:center; gap:8px; margin-bottom:10px; }
+.section-title span.label{ padding:3px 10px; border-radius:999px; border:1px solid rgba(0,255,255,0.5); font-size:0.8rem; text-transform:uppercase; opacity:0.8; }
+
+.control-row{ display:flex; justify-content:center; flex-wrap:wrap; gap:8px; margin-bottom:10px; }
+input[type="number"], input[type="text"]{ 
+    width:110px; padding:6px 12px; border-radius:999px; border:1px solid rgba(0,255,255,0.6); 
+    background:rgba(0,0,0,0.6); color:var(--text); text-align:center;
+}
+button{
+    background:linear-gradient(135deg,#111,#222); color:var(--accent); border-radius:999px;
+    border:1px solid rgba(0,255,255,0.7); padding:7px 14px; cursor:pointer; font-weight:600;
+    transition: all 0.2s;
+}
+button:hover{ background:var(--accent); color:#000; box-shadow:0 0 12px rgba(0,255,255,0.8); }
+
+.slot-frame{ display:inline-block; padding:6px 16px; border-radius:14px; border:1px solid rgba(0,255,255,0.6); background:rgba(0,0,0,0.5); }
+.slot{ font-size:2.4rem; margin:10px 0 4px; letter-spacing:0.3em; }
+.result{ margin-top:8px; min-height:22px; font-weight:bold; }
+.result.win{ color:#00ff9d; text-shadow:0 0 8px #00ff9d; }
+
+/* ログイン画面専用スタイル */
+#loginOverlay { 
+    position:fixed; inset:0; background:rgba(0,0,0,0.95); z-index:1000; 
+    display:flex; align-items:center; justify-content:center; 
+}
+
+/* ランキング・ログ用追加 */
+#rankArea { margin-top: 15px; text-align: left; font-size: 0.9rem; border-top: 1px solid rgba(0,255,255,0.2); padding-top: 10px; }
+.rank-item { display: flex; justify-content: space-between; margin-bottom: 4px; color: rgba(224,255,255,0.8); }
+#gameLog { font-size:0.75rem; text-align:left; height:120px; overflow-y:auto; background:rgba(0,0,0,0.3); padding:10px; border-radius:10px; border:1px solid rgba(255,0,255,0.2); }
+</style>
+</head>
+<body>
+
+<div id="loginOverlay">
+    <div class="section" style="width:320px;">
+        <div class="section-title"><span class="label">ACCOUNT</span><h2>LOGIN</h2></div>
+        <p style="font-size:0.8rem; opacity:0.7;">チップはクラウドに自動保存されます</p>
+        <div class="control-row">
+            <input type="text" id="userNameInput" placeholder="名前を入力..." style="width:80%;">
+        </div>
+        <button onclick="login()">カジノにログイン</button>
+    </div>
+</div>
+
+<header>
+    <h1><span>💎 ULTIMATE ONLINE 💎</span></h1>
+    <div id="chipBar">
+        <span id="displayName" style="color:var(--accent2);">---</span>
+        <span> | 所持チップ:</span>
+        <span id="chips">1000</span>
+    </div>
+</header>
+
+<main>
+    <section class="section">
+        <div class="section-title">
+            <span class="label">MACHINE</span>
+            <h2>🎰 オンライン・スロット</h2>
+        </div>
+        <div class="control-row">
+            <input type="number" id="slotBet" value="10">
+            <button onclick="requestSpin()">スピン</button>
+        </div>
+        <div class="slot-frame">
+            <div class="slot" id="slotDisplay">🎲 🎲 🎲</div>
+        </div>
+        <div id="slotResult" class="result"></div>
+        
+        <div id="rankArea">
+            <div style="font-weight:bold; color:var(--accent); margin-bottom:8px; letter-spacing:0.1em;">🏆 TOP PLAYERS</div>
+            <div id="rankingList"></div>
+        </div>
+    </section>
+
+    <section class="section">
+        <div class="section-title">
+            <span class="label">GLOBAL</span>
+            <h2>📢 ライブ・ログ</h2>
+        </div>
+        <div id="gameLog"></div>
+        <div style="margin-top:20px; padding:10px; border:1px dashed var(--accent); border-radius:10px; font-size:0.8rem; opacity:0.8;">
+            他のプレイヤーが大当たりを出すとここに通知されます。
+        </div>
+    </section>
+</main>
+
+<script>
+const socket = io();
+let myChips = 1000;
+
+// --- ログイン処理 ---
+function login() {
+    const name = document.getElementById('userNameInput').value;
+    if (!name || name.length < 2) return alert("名前を2文字以上で入力してください");
+    socket.emit('login_request', name);
+}
+
+socket.on('login_success', (data) => {
+    document.getElementById('loginOverlay').style.display = 'none';
+    document.getElementById('displayName').textContent = data.name;
+    myChips = data.chips;
+    document.getElementById('chips').textContent = myChips;
+});
+
+// --- スロット処理 ---
+function requestSpin() {
+    const bet = parseInt(document.getElementById('slotBet').value);
+    if (!bet || bet <= 0) return alert("ベット額が正しくありません");
+    if (bet > myChips) return alert("チップが足りません");
+    
+    document.getElementById('slotResult').textContent = "回転中...";
+    socket.emit('spin_request', { bet: bet });
+}
+
+socket.on('spin_result', (data) => {
+    const display = document.getElementById('slotDisplay');
+    const chipDisplay = document.getElementById('chips');
+    const resEl = document.getElementById('slotResult');
+    const symbols = ["🍒", "💎", "7️⃣", "🍋", "⭐"];
+    let count = 0;
+    
+    const interval = setInterval(() => {
+        display.textContent = symbols[Math.floor(Math.random()*5)] + " " + symbols[Math.floor(Math.random()*5)] + " " + symbols[Math.floor(Math.random()*5)];
+        if (count++ > 15) {
+            clearInterval(interval);
+            display.textContent = data.result.join(" ");
+            myChips = data.newChips;
+            chipDisplay.textContent = myChips;
+            
+            if (data.win > 0) {
+                resEl.textContent = `大当たり! +${data.win}`;
+                resEl.className = "result win";
+            } else {
+                resEl.textContent = "ハズレ";
+                resEl.className = "result";
+            }
+        }
+    }, 50);
+});
+
+// --- ランキング・ログ更新 ---
+socket.on('update_ranking', (list) => {
+    const html = list.map((p, i) => `
+        <div class="rank-item">
+            <span>${i+1}. ${p.name}</span>
+            <span style="color:var(--accent);">${p.chips.toLocaleString()}枚</span>
+        </div>
+    `).join("");
+    document.getElementById('rankingList').innerHTML = html;
+});
+
+socket.on('broadcast', (msg) => {
+    const log = document.getElementById('gameLog');
+    const now = new Date();
+    const timeStr = now.getHours() + ":" + now.getMinutes().toString().padStart(2, '0');
+    log.innerHTML = `<div style="margin-bottom:6px; border-left:2px solid var(--accent2); padding-left:8px;">
+        <span style="opacity:0.5; font-size:0.7rem;">[${timeStr}]</span> ${msg}
+    </div>` + log.innerHTML;
+});
+</script>
+</body>
+</html>
