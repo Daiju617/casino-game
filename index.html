@@ -207,9 +207,12 @@
 <div id="loginOverlay">
     <div class="login-card">
         <h2 style="color:var(--gold); margin-bottom:20px;">ROYAL CASINO LOGIN</h2>
-        <input type="text" id="userNameInput" placeholder="プレイヤー名" style="width:200px; margin-bottom:20px;">
+        <input type="text" id="userNameInput" placeholder="プレイヤー名" style="width:200px; margin-bottom:10px;">
+        <br>
+        <input type="password" id="userPassInput" placeholder="パスワード" style="width:200px; margin-bottom:20px;">
         <br>
         <button onclick="login()" class="spin-btn" style="width:226px;">入店する</button>
+        <p id="loginErrMsg" style="color:red; font-size:12px; margin-top:10px;"></p>
     </div>
 </div>
 
@@ -262,19 +265,20 @@
     const socket = io();
     let myChips = 0;
 
-    // ログイン
-    function login() {
-        const nameInput = document.getElementById('userNameInput');
-        const name = nameInput.value.trim();
-        if (name) socket.emit('login_request', name);
+function login() {
+    const name = document.getElementById('userNameInput').value.trim();
+    const pass = document.getElementById('userPassInput').value.trim();
+    if (name && pass) {
+        socket.emit('login_request', { name: name, password: pass });
+    } else {
+        alert("名前とパスワードを入力してください");
     }
+}
 
-    socket.on('login_success', (data) => {
-        document.getElementById('loginOverlay').style.display = 'none';
-        document.getElementById('displayName').textContent = data.name;
-        myChips = data.chips;
-        document.getElementById('chips').textContent = myChips.toLocaleString();
-    });
+// エラー通知を受け取る
+socket.on('login_error', (msg) => {
+    document.getElementById('loginErrMsg').textContent = msg;
+});
 
     // スロット実行
     function requestSpin() {
@@ -349,3 +353,4 @@
 </script>
 </body>
 </html>
+
