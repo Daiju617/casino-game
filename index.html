@@ -1,169 +1,274 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<title>Ultimate Online Casino</title>
-<script src="/socket.io/socket.io.js"></script>
-<style>
-/* あなたのオリジナルデザインを完全復元 */
-:root{
-    --bg:#050510;
-    --accent:#0ff;
-    --accent2:#ff00ff;
-    --panel:#0b0b1a;
-    --text:#e0ffff;
-}
-*{ box-sizing:border-box; }
-body{
-    margin:0;
-    min-height:100vh;
-    background: radial-gradient(circle at top, #202040 0, #050510 55%, #000 100%);
-    font-family: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-    color:var(--text);
-    text-align:center;
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-}
-header{ padding:25px 10px 10px; }
-h1{
-    margin:0; font-size:2.6rem; letter-spacing:0.15em;
-    text-shadow: 0 0 10px var(--accent), 0 0 25px var(--accent2), 0 0 40px #fff;
-}
-h1 span{ display:inline-block; transform:skewX(-8deg); }
-#chipBar{
-    margin-top:10px; display:inline-flex; align-items:center; gap:10px; padding:6px 14px;
-    border-radius:999px; background:linear-gradient(90deg,rgba(0,255,255,0.15),rgba(255,0,255,0.15));
-    border:1px solid rgba(0,255,255,0.5); box-shadow:0 0 15px rgba(0,255,255,0.4); font-weight:bold;
-}
-#chips{ font-size:1.4rem; color:#fff; text-shadow:0 0 8px var(--accent); }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ULTIMATE CASINO ROYAL</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        /* --- 全体のデザイン設定 --- */
+        :root {
+            --gold: #ffd700;
+            --gold-dark: #b8860b;
+            --bg: #0f0f0f;
+            --card: #1e1e1e;
+            --accent: #ff00cc;
+            --win: #00ff88;
+            --lose: #ff4d4d;
+        }
 
-main{ width:100%; max-width:1100px; padding:10px 15px 40px; display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:20px; }
+        body {
+            background-color: var(--bg);
+            background-image: radial-gradient(circle at center, #222 0%, #0f0f0f 100%);
+            color: white;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
 
-.section{
-    position:relative; background:radial-gradient(circle at top left,#1a1a3a,#050510 60%);
-    border-radius:18px; padding:18px 16px 20px; border:1px solid rgba(0,255,255,0.4);
-    box-shadow: 0 0 25px rgba(0,255,255,0.25), 0 0 40px rgba(255,0,255,0.15); overflow:hidden;
-}
-.section-title{ display:flex; justify-content:center; align-items:center; gap:8px; margin-bottom:10px; }
-.section-title span.label{ padding:3px 10px; border-radius:999px; border:1px solid rgba(0,255,255,0.5); font-size:0.8rem; text-transform:uppercase; opacity:0.8; }
+        /* --- ヘッダー --- */
+        .header {
+            width: 100%;
+            padding: 30px 0;
+            background: linear-gradient(to bottom, #000, #1a1a1a);
+            border-bottom: 4px solid var(--gold);
+            text-align: center;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.8);
+        }
 
-.control-row{ display:flex; justify-content:center; flex-wrap:wrap; gap:8px; margin-bottom:10px; }
-input[type="number"], input[type="text"]{ 
-    width:110px; padding:6px 12px; border-radius:999px; border:1px solid rgba(0,255,255,0.6); 
-    background:rgba(0,0,0,0.6); color:var(--text); text-align:center;
-}
-button{
-    background:linear-gradient(135deg,#111,#222); color:var(--accent); border-radius:999px;
-    border:1px solid rgba(0,255,255,0.7); padding:7px 14px; cursor:pointer; font-weight:600;
-    transition: all 0.2s;
-}
-button:hover{ background:var(--accent); color:#000; box-shadow:0 0 12px rgba(0,255,255,0.8); }
+        h1 {
+            margin: 0;
+            font-size: 2.5rem;
+            letter-spacing: 5px;
+            text-shadow: 0 0 10px var(--gold);
+            color: var(--gold);
+        }
 
-.slot-frame{ display:inline-block; padding:6px 16px; border-radius:14px; border:1px solid rgba(0,255,255,0.6); background:rgba(0,0,0,0.5); }
-.slot{ font-size:2.4rem; margin:10px 0 4px; letter-spacing:0.3em; }
-.result{ margin-top:8px; min-height:22px; font-weight:bold; }
-.result.win{ color:#00ff9d; text-shadow:0 0 8px #00ff9d; }
+        .user-info {
+            margin-top: 10px;
+            font-size: 1.2rem;
+            background: rgba(255,255,255,0.1);
+            display: inline-block;
+            padding: 5px 20px;
+            border-radius: 20px;
+        }
 
-/* ログイン画面専用スタイル */
-#loginOverlay { 
-    position:fixed; inset:0; background:rgba(0,0,0,0.95); z-index:1000; 
-    display:flex; align-items:center; justify-content:center; 
-}
+        /* --- レイアウト --- */
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 320px;
+            gap: 25px;
+            max-width: 1100px;
+            width: 95%;
+            margin: 30px 0;
+        }
 
-/* ランキング・ログ用追加 */
-#rankArea { margin-top: 15px; text-align: left; font-size: 0.9rem; border-top: 1px solid rgba(0,255,255,0.2); padding-top: 10px; }
-.rank-item { display: flex; justify-content: space-between; margin-bottom: 4px; color: rgba(224,255,255,0.8); }
-#gameLog { font-size:0.75rem; text-align:left; height:120px; overflow-y:auto; background:rgba(0,0,0,0.3); padding:10px; border-radius:10px; border:1px solid rgba(255,0,255,0.2); }
-</style>
+        @media (max-width: 800px) {
+            .container { grid-template-columns: 1fr; }
+        }
+
+        .game-card {
+            background: var(--card);
+            padding: 25px;
+            border-radius: 20px;
+            border: 2px solid #333;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            margin-bottom: 25px;
+        }
+
+        /* --- スロット表示 --- */
+        .slot-machine {
+            background: #000;
+            padding: 30px;
+            border-radius: 15px;
+            border: 3px solid var(--gold-dark);
+            margin: 20px 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #slotDisplay {
+            font-size: 60px;
+            letter-spacing: 15px;
+            text-shadow: 0 0 15px var(--gold);
+            min-height: 80px;
+        }
+
+        /* --- 入力とボタン --- */
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        input[type="number"] {
+            background: #000;
+            color: var(--gold);
+            border: 1px solid var(--gold-dark);
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 1.2rem;
+            width: 100px;
+            text-align: center;
+        }
+
+        button {
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            border: none;
+            transition: 0.3s;
+            text-transform: uppercase;
+        }
+
+        .spin-btn {
+            background: linear-gradient(to bottom, var(--gold), #b8860b);
+            color: black;
+        }
+
+        .double-btn {
+            background: linear-gradient(45deg, var(--accent), #3333ff);
+            color: white;
+            width: 100%;
+            margin-top: 15px;
+        }
+
+        button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(255, 215, 0, 0.4);
+        }
+
+        button:active { transform: translateY(0); }
+
+        /* --- ランキング & ログ --- */
+        .ranking {
+            background: #111;
+            padding: 20px;
+            border-radius: 15px;
+            border: 1px solid #444;
+        }
+
+        .rank-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #333;
+        }
+
+        .log-box {
+            width: 95%;
+            max-width: 1100px;
+            height: 120px;
+            background: #000;
+            border: 1px solid #333;
+            padding: 15px;
+            overflow-y: auto;
+            border-radius: 10px;
+            font-family: monospace;
+            color: #aaa;
+            margin-bottom: 40px;
+        }
+
+        /* --- ログインオーバーレイ --- */
+        #loginOverlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.95);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .login-card {
+            background: var(--card);
+            padding: 40px;
+            border-radius: 20px;
+            border: 3px solid var(--gold);
+            text-align: center;
+        }
+
+        .result {
+            font-size: 1.5rem;
+            margin-top: 15px;
+            min-height: 1.8rem;
+            font-weight: bold;
+        }
+    </style>
 </head>
 <body>
 
 <div id="loginOverlay">
-    <div class="section" style="width:320px;">
-        <div class="section-title"><span class="label">ACCOUNT</span><h2>LOGIN</h2></div>
-        <p style="font-size:0.8rem; opacity:0.7;">チップはクラウドに自動保存されます</p>
-        <div class="control-row">
-            <input type="text" id="userNameInput" placeholder="名前を入力..." style="width:80%;">
-        </div>
-        <button onclick="login()">カジノにログイン</button>
+    <div class="login-card">
+        <h2 style="color:var(--gold); margin-bottom:20px;">ROYAL CASINO LOGIN</h2>
+        <input type="text" id="userNameInput" placeholder="プレイヤー名" style="width:200px; margin-bottom:20px;">
+        <br>
+        <button onclick="login()" class="spin-btn" style="width:226px;">入店する</button>
     </div>
 </div>
 
-<header>
-    <h1><span>💎 ULTIMATE ONLINE 💎</span></h1>
-    <div id="chipBar">
-        <span id="displayName" style="color:var(--accent2);">---</span>
-        <span> | 所持チップ:</span>
-        <span id="chips">1000</span>
+<div class="header">
+    <h1>🎰 ULTIMATE CASINO</h1>
+    <div class="user-info">
+        <span id="displayName">-</span> 殿 | 
+        <span style="color:var(--gold)">💰 <span id="chips">0</span> 枚</span>
     </div>
-</header>
+</div>
 
-<main>
-    <section class="section">
-        <div class="section-title">
-            <span class="label">MACHINE</span>
-            <h2>🎰 オンライン・スロット</h2>
+<div class="container">
+    <div class="main-content">
+        <div class="game-card">
+            <h2 style="margin-top:0;">SLOT MACHINE</h2>
+            <div class="slot-machine">
+                <div id="slotDisplay">🍒 💎 7️⃣</div>
+            </div>
+            <div class="controls">
+                <input type="number" id="slotBet" value="100" min="10">
+                <button onclick="requestSpin()" class="spin-btn">SPIN</button>
+            </div>
+            <div id="slotResult" class="result"></div>
         </div>
-        <div class="control-row">
-            <input type="number" id="slotBet" value="10">
-            <button onclick="requestSpin()">スピン</button>
-        </div>
-        <div class="slot-frame">
-            <div class="slot" id="slotDisplay">🎲 🎲 🎲</div>
-        </div>
-        <div id="slotResult" class="result"></div>
-        
-        <div id="rankArea">
-            <div style="font-weight:bold; color:var(--accent); margin-bottom:8px; letter-spacing:0.1em;">🏆 TOP PLAYERS</div>
-            <div id="rankingList"></div>
-        </div>
-    </section>
 
-    <section class="section">
-        <div class="section-title">
-            <span class="label">GLOBAL</span>
-            <h2>📢 ライブ・ログ</h2>
+        <div class="game-card">
+            <h2 style="margin-top:0;">HIGH & LOW</h2>
+            <p style="color:#888;">ディーラーより大きい数字を出せば配当2倍！</p>
+            <div class="controls">
+                <input type="number" id="doubleBet" value="100" min="10">
+                <div style="flex-grow:1;">
+                    <button onclick="requestDoubleUp()" class="double-btn">勝負を開始する</button>
+                </div>
+            </div>
+            <div id="doubleResult" class="result"></div>
         </div>
-        <div id="gameLog"></div>
-        <div style="margin-top:20px; padding:10px; border:1px dashed var(--accent); border-radius:10px; font-size:0.8rem; opacity:0.8;">
-            他のプレイヤーが大当たりを出すとここに通知されます。
-        </div>
-    </section>
-</main>
+    </div>
 
-<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <div class="ranking">
+        <h3 style="color:var(--gold); border-bottom:1px solid var(--gold); padding-bottom:10px;">🏆 RANKING</h3>
+        <div id="rankingList"></div>
+    </div>
+</div>
+
+<div class="log-box" id="gameLog">
+    <div>システムの準備が完了しました。</div>
+</div>
 
 <script>
-    // サーバーのURLを自動判定（Render環境に対応）
-    const socket = io(); 
+    const socket = io();
     let myChips = 0;
 
-    // ページ読み込み完了を確認してからログインを有効にする
-    window.onload = () => {
-        console.log("ページ読み込み完了");
-    };
-
-    // --- ログイン処理 ---
+    // ログイン
     function login() {
         const nameInput = document.getElementById('userNameInput');
         const name = nameInput.value.trim();
-        
-        if (!name) {
-            alert("名前を入力してください");
-            return;
-        }
-
-        // ボタンを連打できないように一時無効化
-        const btn = event.target;
-        btn.disabled = true;
-        btn.textContent = "接続中...";
-
-        console.log("ログイン送信:", name);
-        socket.emit('login_request', name);
+        if (name) socket.emit('login_request', name);
     }
 
-    // サーバーからの応答
     socket.on('login_success', (data) => {
         document.getElementById('loginOverlay').style.display = 'none';
         document.getElementById('displayName').textContent = data.name;
@@ -174,54 +279,73 @@ button:hover{ background:var(--accent); color:#000; box-shadow:0 0 12px rgba(0,2
     // スロット実行
     function requestSpin() {
         const bet = parseInt(document.getElementById('slotBet').value);
-        if (isNaN(bet) || bet <= 0) return alert("ベット額を入力してください");
-        if (bet > myChips) return alert("チップが足りません");
-        
-        document.getElementById('slotResult').textContent = "抽選中...";
+        if (bet > myChips) return alert("所持金が足りません");
         socket.emit('spin_request', { bet: bet });
     }
 
     socket.on('spin_result', (data) => {
         const display = document.getElementById('slotDisplay');
-        const chipDisplay = document.getElementById('chips');
         const resEl = document.getElementById('slotResult');
-        const symbols = ["🍒", "💎", "7️⃣", "🍋", "⭐"];
         let count = 0;
         
+        const symbols = ["🍒", "💎", "7️⃣", "🍋", "⭐"];
         const interval = setInterval(() => {
-            display.textContent = symbols[Math.floor(Math.random()*5)] + " " + symbols[Math.floor(Math.random()*5)] + " " + symbols[Math.floor(Math.random()*5)];
-            if (count++ > 15) {
+            display.textContent = `${symbols[Math.floor(Math.random()*5)]} ${symbols[Math.floor(Math.random()*5)]} ${symbols[Math.floor(Math.random()*5)]}`;
+            if (count++ > 20) {
                 clearInterval(interval);
                 display.textContent = data.result.join(" ");
                 myChips = data.newChips;
-                chipDisplay.textContent = myChips.toLocaleString();
+                document.getElementById('chips').textContent = myChips.toLocaleString();
                 
                 if (data.win > 0) {
-                    resEl.textContent = `HIT! +${data.win}`;
-                    resEl.className = "result win";
+                    resEl.textContent = `WIN!! +${data.win}`;
+                    resEl.style.color = "var(--win)";
                 } else {
                     resEl.textContent = "LOSE";
-                    resEl.className = "result";
+                    resEl.style.color = "var(--lose)";
                 }
             }
-        }, 50);
+        }, 40);
     });
 
+    // ダブルアップ実行
+    function requestDoubleUp() {
+        const bet = parseInt(document.getElementById('doubleBet').value);
+        if (bet > myChips) return alert("所持金が足りません");
+        socket.emit('double_up_request', { bet: bet });
+    }
+
+    socket.on('double_up_result', (data) => {
+        myChips = data.newChips;
+        document.getElementById('chips').textContent = myChips.toLocaleString();
+        const resEl = document.getElementById('doubleResult');
+        resEl.textContent = data.message;
+        
+        if (data.win > parseInt(document.getElementById('doubleBet').value)) {
+            resEl.style.color = "var(--win)";
+        } else if (data.win === 0) {
+            resEl.style.color = "var(--lose)";
+        } else {
+            resEl.style.color = "white";
+        }
+    });
+
+    // ランキング更新
     socket.on('update_ranking', (list) => {
         const html = list.map((p, i) => `
             <div class="rank-item">
                 <span>${i+1}. ${p.name}</span>
-                <span>${p.chips.toLocaleString()}枚</span>
+                <span style="color:var(--gold)">${p.chips.toLocaleString()}</span>
             </div>
         `).join("");
         document.getElementById('rankingList').innerHTML = html;
     });
 
+    // ログ通知
     socket.on('broadcast', (msg) => {
         const log = document.getElementById('gameLog');
-        log.innerHTML = `<div>${msg}</div>` + log.innerHTML;
+        log.innerHTML = `<div style="color:var(--gold); border-bottom:1px solid #222; padding:3px 0;">> ${msg}</div>` + log.innerHTML;
     });
 </script>
 </body>
 </html>
-
