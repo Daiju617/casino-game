@@ -10,17 +10,23 @@ const io = new Server(server);
 
 app.use(express.static(__dirname));
 
-// --- データベース接続 ---
-// ここをコピーした文字列に書き換え！ <password> の消し忘れに注意
-const MONGO_URI = "mongodb+srv://tomnaga8510_db_user:<db_password>@casinogame.vkch471.mongodb.net/?appName=Casinogame"; 
+// ここから入れ替え
+const MONGO_URI = process.env.MONGO_URI; 
 
-// app.js 修正版
+if (!MONGO_URI) {
+    console.error("❌ エラー: RenderのEnvironment Variablesに 'MONGO_URI' が設定されていません！");
+}
+
 mongoose.connect(MONGO_URI)
-    .then(() => console.log("MongoDBに接続成功！"))
+    .then(() => {
+        console.log("✅ MongoDBに接続成功！カジノ開店です！");
+    })
     .catch(err => {
-        console.error("DB接続エラー:");
-        console.error(err); // ここで詳細を確認
+        console.error("❌ MongoDB接続エラーの詳細:");
+        console.error("名前:", err.name);
+        console.error("メッセージ:", err.message);
     });
+// ここまで入れ替え
 
 // ユーザーデータの設計図
 const userSchema = new mongoose.Schema({
@@ -81,4 +87,5 @@ async function updateRankings() {
 }
 
 const PORT = process.env.PORT || 3000;
+
 server.listen(PORT, () => console.log(`Server: http://localhost:${PORT}`));
