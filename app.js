@@ -118,6 +118,49 @@ io.on('connection', (socket) => {
     });
 });
 
+// スキーマにパスワードを追加
+const userSchema = new mongoose.Schema({
+    name: String,
+    password: String, // パスワード項目を追加
+    chips: Number,
+    lastLogin: Date
+});
+const User = mongoose.model('User', userSchema);
+
+// ログインリクエスト部分を修正
+socket.on('login_request', async (data) => {
+    const { name, password } = data; // 名前とパスワードを受け取る
+    socket.userName = name;
+    
+    let user = await User.findOne({ name: name });
+    let bonusMessage = "";
+
+    if (!user) {
+        // 新規登録：パスワードをセット
+        user = new User({ name: name, password: password, chips: 1000, lastLogin: new Date() });
+        await user.save();
+        bonusMessage = `✨ 初来店！${name}さんに1,000枚贈呈！`;
+    } else {
+        // 既存ユーザー：パスワードチェック
+        if (user.password !== password) {
+            socket.emit('login_error', "パスワードが違います。別の名前か正しいパスワードを入れてください。");
+            return;
+        }
+        // ボーナス処理（以前と同じ）
+        const now = new Date();
+        const last = user.lastLogin || new Date(0);
+        if (now - last > 24 * 60 * 60 * 1000) {
+            user.chips += 500;
+            user.lastLogin = now;
+            await user.save();
+            bonusMessage = `🎁 ログインボーナス！500枚獲得！`;
+        }
+    }
+    socket.emit('login_success', { name: user.name, chips: user.chips });
+    if (bonusMessage) io.emit('broadcast', bonusMessage);
+    updateRanking();
+});
+
 // ランキング更新
 async function updateRanking() {
     const topUsers = await User.find().sort({ chips: -1 }).limit(5);
@@ -128,3 +171,4 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
+
