@@ -132,45 +132,55 @@ button:hover{ background:var(--accent); color:#000; box-shadow:0 0 12px rgba(0,2
     </section>
 </main>
 
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+
 <script>
-    const socket = io(); // Socket.ioの開始
+    // サーバーのURLを自動判定（Render環境に対応）
+    const socket = io(); 
     let myChips = 0;
 
-    // --- ログイン処理 (ここが重要！) ---
+    // ページ読み込み完了を確認してからログインを有効にする
+    window.onload = () => {
+        console.log("ページ読み込み完了");
+    };
+
+    // --- ログイン処理 ---
     function login() {
         const nameInput = document.getElementById('userNameInput');
         const name = nameInput.value.trim();
         
         if (!name) {
-            alert("名前を入力してください！");
+            alert("名前を入力してください");
             return;
         }
 
-        console.log("ログインをリクエスト中...", name);
-        // サーバーにログインリクエストを送る
+        // ボタンを連打できないように一時無効化
+        const btn = event.target;
+        btn.disabled = true;
+        btn.textContent = "接続中...";
+
+        console.log("ログイン送信:", name);
         socket.emit('login_request', name);
     }
 
-    // サーバーからログイン成功の返事が来た時
+    // サーバーからの応答
     socket.on('login_success', (data) => {
-        console.log("ログイン成功！", data);
         document.getElementById('loginOverlay').style.display = 'none';
         document.getElementById('displayName').textContent = data.name;
         myChips = data.chips;
         document.getElementById('chips').textContent = myChips.toLocaleString();
     });
 
-    // スロットのリクエスト
+    // スロット実行
     function requestSpin() {
         const bet = parseInt(document.getElementById('slotBet').value);
-        if (isNaN(bet) || bet <= 0) return alert("ベット額が正しくありません");
+        if (isNaN(bet) || bet <= 0) return alert("ベット額を入力してください");
         if (bet > myChips) return alert("チップが足りません");
         
-        document.getElementById('slotResult').textContent = "回転中...";
+        document.getElementById('slotResult').textContent = "抽選中...";
         socket.emit('spin_request', { bet: bet });
     }
 
-    // スロット結果の受信
     socket.on('spin_result', (data) => {
         const display = document.getElementById('slotDisplay');
         const chipDisplay = document.getElementById('chips');
@@ -187,22 +197,21 @@ button:hover{ background:var(--accent); color:#000; box-shadow:0 0 12px rgba(0,2
                 chipDisplay.textContent = myChips.toLocaleString();
                 
                 if (data.win > 0) {
-                    resEl.textContent = `大当たり! +${data.win}`;
+                    resEl.textContent = `HIT! +${data.win}`;
                     resEl.className = "result win";
                 } else {
-                    resEl.textContent = "ハズレ";
+                    resEl.textContent = "LOSE";
                     resEl.className = "result";
                 }
             }
         }, 50);
     });
 
-    // ランキングとログの受信
     socket.on('update_ranking', (list) => {
         const html = list.map((p, i) => `
             <div class="rank-item">
                 <span>${i+1}. ${p.name}</span>
-                <span style="color:var(--accent);">${p.chips.toLocaleString()}枚</span>
+                <span>${p.chips.toLocaleString()}枚</span>
             </div>
         `).join("");
         document.getElementById('rankingList').innerHTML = html;
@@ -215,3 +224,4 @@ button:hover{ background:var(--accent); color:#000; box-shadow:0 0 12px rgba(0,2
 </script>
 </body>
 </html>
+
