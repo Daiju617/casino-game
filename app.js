@@ -7,168 +7,190 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// --- 1. データベース設定 ---
-const MONGO_URI = process.env.MONGO_URI;
+// --- 1. データベース接続設定 ---
+const MONGO_URI = process.env.MONGO_URI; 
 mongoose.connect(MONGO_URI)
-    .then(() => console.log("✅ MongoDB接続成功"))
-    .catch(err => console.error("❌ DBエラー:", err));
+    .then(() => {
+        console.log("✅ MongoDB接続成功：カジノサーバー稼働中");
+    })
+    .catch(err => {
+        console.error("❌ MongoDB接続エラー:", err.message);
+    });
 
-// ユーザーデータの保存形式（ログインボーナス用にlastLoginを追加）
+// ユーザーデータの保存形式（パスワードとログインボーナス用）
 const userSchema = new mongoose.Schema({
-    name: String,
-    chips: Number,
-    lastLogin: Date
+    name: { type: String, required: true },
+    password: { type: String, required: true },
+    chips: { type: Number, default: 1000 },
+    lastLogin: { type: Date, default: Date.now }
 });
 const User = mongoose.model('User', userSchema);
 
-// --- 2. サーバー設定 ---
+// 静的ファイルの提供（index.htmlを表示するため）
 app.use(express.static(__dirname));
 
-// --- 3. ゲームロジック ---
-
+// --- 2. 通信ロジック ---
 io.on('connection', (socket) => {
-    console.log('ユーザーが接続しました');
+    console.log('新規ユーザーが接続しました');
 
-    // 【B：ログインボーナス機能付きログイン】
-    socket.on('login_request', async (name) => {
-        socket.userName = name;
-        let user = await User.findOne({ name: name });
-        let bonusMessage = "";
+    // 【ログイン処理（パスワード認証 & ボーナス）】
+    socket.on('login_request', async (data) => {
+        const { name, password } = data;
+        
+        try {
+            let user = await User.findOne({ name: name });
 
-        if (!user) {
-            user = new User({ name: name, chips: 1000, lastLogin: new Date() });
-            await user.save();
-            bonusMessage = `ようこそ ${name}さん！新規特典1,000枚贈呈！`;
-        } else {
-            const now = new Date();
-            const last = user.lastLogin || new Date(0);
-            // 24時間以上経過判定
-            if (now - last > 24 * 60 * 60 * 1000) {
-                user.chips += 500;
-                user.lastLogin = now;
+            if (!user) {
+                // 新規ユーザー作成
+                user = new User({ 
+                    name: name, 
+                    password: password, 
+                    chips: 1000, 
+                    lastLogin: new Date() 
+                });
                 await user.save();
-                bonusMessage = `毎日ボーナス！500枚獲得！（現在: ${user.chips}枚）`;
+                console.log(`新規登録: ${name}`);
             } else {
-                // ログイン時刻だけ更新
-                user.lastLogin = now;
-                await user.save();
+                // 既存ユーザーのパスワードチェック
+                if (user.password !== password) {
+                    socket.emit('login_error', "パスワードが正しくありません。");
+                    return;
+                }
+
+                // 24時間ごとのログインボーナス判定
+                const now = new Date();
+                const last = user.lastLogin || new Date(0);
+                const diffTime = now - last;
+                const oneDay = 24 * 60 * 60 * 1000;
+
+                if (diffTime > oneDay) {
+                    user.chips += 500;
+                    user.lastLogin = now;
+                    await user.save();
+                    io.emit('broadcast', `🎁 ${name}さんが24時間ボーナス（500枚）を獲得しました！`);
+                } else {
+                    // ログイン時刻のみ更新
+                    user.lastLogin = now;
+                    await user.save();
+                }
             }
-        }
 
-        socket.emit('login_success', { name: user.name, chips: user.chips });
-        if (bonusMessage) io.emit('broadcast', bonusMessage);
-        updateRanking();
+            // ログイン成功を通知
+            socket.userName = name;
+            socket.emit('login_success', { name: user.name, chips: user.chips });
+            updateRanking();
+
+        } catch (err) {
+            console.error("ログインエラー:", err);
+            socket.emit('login_error', "サーバーエラーが発生しました。");
+        }
     });
 
-    // 【スロット：リスク比例配当】
+    // 【配当比例スロット処理】
     socket.on('spin_request', async (data) => {
-        const user = await User.findOne({ name: socket.userName });
-        if (!user || user.chips < data.bet) return;
+        try {
+            const user = await User.findOne({ name: socket.userName });
+            const bet = parseInt(data.bet);
 
-        const symbols = ["🍒", "💎", "7️⃣", "🍋", "⭐"];
-        const result = [
-            symbols[Math.floor(Math.random() * symbols.length)],
-            symbols[Math.floor(Math.random() * symbols.length)],
-            symbols[Math.floor(Math.random() * symbols.length)]
-        ];
+            if (!user || isNaN(bet) || bet <= 0 || user.chips < bet) {
+                return;
+            }
 
-        let multiplier = 0;
-        if (result[0] === result[1] && result[1] === result[2]) {
-            if (result[0] === "7️⃣") multiplier = 50; 
-            else if (result[0] === "💎") multiplier = 20;
-            else multiplier = 10;
-        } else if (result[0] === result[1] || result[1] === result[2] || result[0] === result[2]) {
-            multiplier = 2; // 小当たり
-        }
+            const symbols = ["🍒", "💎", "7️⃣", "🍋", "⭐"];
+            const result = [
+                symbols[Math.floor(Math.random() * 5)],
+                symbols[Math.floor(Math.random() * 5)],
+                symbols[Math.floor(Math.random() * 5)]
+            ];
 
-        const win = data.bet * multiplier;
-        user.chips = user.chips - data.bet + win;
-        await user.save();
+            let multiplier = 0;
+            // 3つ揃い（大当たり）
+            if (result[0] === result[1] && result[1] === result[2]) {
+                if (result[0] === "7️⃣") multiplier = 50; 
+                else if (result[0] === "💎") multiplier = 20;
+                else multiplier = 10;
+            } 
+            // 2つ揃い（小当たり）
+            else if (result[0] === result[1] || result[1] === result[2] || result[0] === result[2]) {
+                multiplier = 2;
+            }
 
-        socket.emit('spin_result', { result, win, newChips: user.chips });
-        updateRanking();
-    });
-
-    // 【C：新ゲーム ダブルアップ】
-    socket.on('double_up_request', async (data) => {
-        const user = await User.findOne({ name: socket.userName });
-        if (!user || user.chips < data.bet) return;
-
-        const myCard = Math.floor(Math.random() * 10);
-        const dealerCard = Math.floor(Math.random() * 10);
-        let win = 0;
-        let msg = "";
-
-        if (myCard > dealerCard) {
-            win = data.bet * 2;
-            msg = `勝利！ 貴方:${myCard} vs 敵:${dealerCard} (+${win})`;
-        } else if (myCard === dealerCard) {
-            win = data.bet;
-            msg = `引き分け！ 両者:${myCard} (返金)`;
-        } else {
-            win = 0;
-            msg = `敗北... 貴方:${myCard} vs 敵:${dealerCard}`;
-        }
-
-        user.chips = user.chips - data.bet + win;
-        await user.save();
-
-        socket.emit('double_up_result', { win, message: msg, newChips: user.chips });
-        updateRanking();
-    });
-});
-
-// スキーマにパスワードを追加
-const userSchema = new mongoose.Schema({
-    name: String,
-    password: String, // パスワード項目を追加
-    chips: Number,
-    lastLogin: Date
-});
-const User = mongoose.model('User', userSchema);
-
-// ログインリクエスト部分を修正
-socket.on('login_request', async (data) => {
-    const { name, password } = data; // 名前とパスワードを受け取る
-    socket.userName = name;
-    
-    let user = await User.findOne({ name: name });
-    let bonusMessage = "";
-
-    if (!user) {
-        // 新規登録：パスワードをセット
-        user = new User({ name: name, password: password, chips: 1000, lastLogin: new Date() });
-        await user.save();
-        bonusMessage = `✨ 初来店！${name}さんに1,000枚贈呈！`;
-    } else {
-        // 既存ユーザー：パスワードチェック
-        if (user.password !== password) {
-            socket.emit('login_error', "パスワードが違います。別の名前か正しいパスワードを入れてください。");
-            return;
-        }
-        // ボーナス処理（以前と同じ）
-        const now = new Date();
-        const last = user.lastLogin || new Date(0);
-        if (now - last > 24 * 60 * 60 * 1000) {
-            user.chips += 500;
-            user.lastLogin = now;
+            const win = bet * multiplier;
+            user.chips = user.chips - bet + win;
             await user.save();
-            bonusMessage = `🎁 ログインボーナス！500枚獲得！`;
+
+            socket.emit('spin_result', { 
+                result: result, 
+                win: win, 
+                newChips: user.chips 
+            });
+            updateRanking();
+
+        } catch (err) {
+            console.error("スロットエラー:", err);
         }
-    }
-    socket.emit('login_success', { name: user.name, chips: user.chips });
-    if (bonusMessage) io.emit('broadcast', bonusMessage);
-    updateRanking();
+    });
+
+    // 【ダブルアップ (High & Low) 処理】
+    socket.on('double_up_request', async (data) => {
+        try {
+            const user = await User.findOne({ name: socket.userName });
+            const bet = parseInt(data.bet);
+
+            if (!user || isNaN(bet) || bet <= 0 || user.chips < bet) {
+                return;
+            }
+
+            // 0〜9の数字で比較
+            const playerCard = Math.floor(Math.random() * 10);
+            const dealerCard = Math.floor(Math.random() * 10);
+            
+            let win = 0;
+            let message = "";
+
+            if (playerCard > dealerCard) {
+                win = bet * 2;
+                message = `勝利！ 貴方:${playerCard} vs 敵:${dealerCard} (+${win})`;
+            } else if (playerCard === dealerCard) {
+                win = bet;
+                message = `引き分け！ 両者:${playerCard} (返金)`;
+            } else {
+                win = 0;
+                message = `敗北... 貴方:${playerCard} vs 敵:${dealerCard}`;
+            }
+
+            user.chips = user.chips - bet + win;
+            await user.save();
+
+            socket.emit('double_up_result', { 
+                win: win, 
+                message: message, 
+                newChips: user.chips 
+            });
+            updateRanking();
+
+        } catch (err) {
+            console.error("ダブルアップエラー:", err);
+        }
+    });
+
+    socket.on('disconnect', () => {
+        console.log('ユーザーが離脱しました');
+    });
 });
 
-// ランキング更新
+// ランキングを全ユーザーに送信
 async function updateRanking() {
-    const topUsers = await User.find().sort({ chips: -1 }).limit(5);
-    io.emit('update_ranking', topUsers);
+    try {
+        const topUsers = await User.find().sort({ chips: -1 }).limit(5);
+        io.emit('update_ranking', topUsers);
+    } catch (err) {
+        console.error("ランキング更新エラー:", err);
+    }
 }
 
+// サーバー起動
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
-
