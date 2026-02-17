@@ -133,78 +133,85 @@ button:hover{ background:var(--accent); color:#000; box-shadow:0 0 12px rgba(0,2
 </main>
 
 <script>
-const socket = io();
-let myChips = 1000;
+    const socket = io(); // Socket.ioの開始
+    let myChips = 0;
 
-// --- ログイン処理 ---
-function login() {
-    const name = document.getElementById('userNameInput').value;
-    if (!name || name.length < 2) return alert("名前を2文字以上で入力してください");
-    socket.emit('login_request', name);
-}
-
-socket.on('login_success', (data) => {
-    document.getElementById('loginOverlay').style.display = 'none';
-    document.getElementById('displayName').textContent = data.name;
-    myChips = data.chips;
-    document.getElementById('chips').textContent = myChips;
-});
-
-// --- スロット処理 ---
-function requestSpin() {
-    const bet = parseInt(document.getElementById('slotBet').value);
-    if (!bet || bet <= 0) return alert("ベット額が正しくありません");
-    if (bet > myChips) return alert("チップが足りません");
-    
-    document.getElementById('slotResult').textContent = "回転中...";
-    socket.emit('spin_request', { bet: bet });
-}
-
-socket.on('spin_result', (data) => {
-    const display = document.getElementById('slotDisplay');
-    const chipDisplay = document.getElementById('chips');
-    const resEl = document.getElementById('slotResult');
-    const symbols = ["🍒", "💎", "7️⃣", "🍋", "⭐"];
-    let count = 0;
-    
-    const interval = setInterval(() => {
-        display.textContent = symbols[Math.floor(Math.random()*5)] + " " + symbols[Math.floor(Math.random()*5)] + " " + symbols[Math.floor(Math.random()*5)];
-        if (count++ > 15) {
-            clearInterval(interval);
-            display.textContent = data.result.join(" ");
-            myChips = data.newChips;
-            chipDisplay.textContent = myChips;
-            
-            if (data.win > 0) {
-                resEl.textContent = `大当たり! +${data.win}`;
-                resEl.className = "result win";
-            } else {
-                resEl.textContent = "ハズレ";
-                resEl.className = "result";
-            }
+    // --- ログイン処理 (ここが重要！) ---
+    function login() {
+        const nameInput = document.getElementById('userNameInput');
+        const name = nameInput.value.trim();
+        
+        if (!name) {
+            alert("名前を入力してください！");
+            return;
         }
-    }, 50);
-});
 
-// --- ランキング・ログ更新 ---
-socket.on('update_ranking', (list) => {
-    const html = list.map((p, i) => `
-        <div class="rank-item">
-            <span>${i+1}. ${p.name}</span>
-            <span style="color:var(--accent);">${p.chips.toLocaleString()}枚</span>
-        </div>
-    `).join("");
-    document.getElementById('rankingList').innerHTML = html;
-});
+        console.log("ログインをリクエスト中...", name);
+        // サーバーにログインリクエストを送る
+        socket.emit('login_request', name);
+    }
 
-socket.on('broadcast', (msg) => {
-    const log = document.getElementById('gameLog');
-    const now = new Date();
-    const timeStr = now.getHours() + ":" + now.getMinutes().toString().padStart(2, '0');
-    log.innerHTML = `<div style="margin-bottom:6px; border-left:2px solid var(--accent2); padding-left:8px;">
-        <span style="opacity:0.5; font-size:0.7rem;">[${timeStr}]</span> ${msg}
-    </div>` + log.innerHTML;
-});
+    // サーバーからログイン成功の返事が来た時
+    socket.on('login_success', (data) => {
+        console.log("ログイン成功！", data);
+        document.getElementById('loginOverlay').style.display = 'none';
+        document.getElementById('displayName').textContent = data.name;
+        myChips = data.chips;
+        document.getElementById('chips').textContent = myChips.toLocaleString();
+    });
+
+    // スロットのリクエスト
+    function requestSpin() {
+        const bet = parseInt(document.getElementById('slotBet').value);
+        if (isNaN(bet) || bet <= 0) return alert("ベット額が正しくありません");
+        if (bet > myChips) return alert("チップが足りません");
+        
+        document.getElementById('slotResult').textContent = "回転中...";
+        socket.emit('spin_request', { bet: bet });
+    }
+
+    // スロット結果の受信
+    socket.on('spin_result', (data) => {
+        const display = document.getElementById('slotDisplay');
+        const chipDisplay = document.getElementById('chips');
+        const resEl = document.getElementById('slotResult');
+        const symbols = ["🍒", "💎", "7️⃣", "🍋", "⭐"];
+        let count = 0;
+        
+        const interval = setInterval(() => {
+            display.textContent = symbols[Math.floor(Math.random()*5)] + " " + symbols[Math.floor(Math.random()*5)] + " " + symbols[Math.floor(Math.random()*5)];
+            if (count++ > 15) {
+                clearInterval(interval);
+                display.textContent = data.result.join(" ");
+                myChips = data.newChips;
+                chipDisplay.textContent = myChips.toLocaleString();
+                
+                if (data.win > 0) {
+                    resEl.textContent = `大当たり! +${data.win}`;
+                    resEl.className = "result win";
+                } else {
+                    resEl.textContent = "ハズレ";
+                    resEl.className = "result";
+                }
+            }
+        }, 50);
+    });
+
+    // ランキングとログの受信
+    socket.on('update_ranking', (list) => {
+        const html = list.map((p, i) => `
+            <div class="rank-item">
+                <span>${i+1}. ${p.name}</span>
+                <span style="color:var(--accent);">${p.chips.toLocaleString()}枚</span>
+            </div>
+        `).join("");
+        document.getElementById('rankingList').innerHTML = html;
+    });
+
+    socket.on('broadcast', (msg) => {
+        const log = document.getElementById('gameLog');
+        log.innerHTML = `<div>${msg}</div>` + log.innerHTML;
+    });
 </script>
 </body>
 </html>
