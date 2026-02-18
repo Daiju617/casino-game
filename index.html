@@ -66,6 +66,52 @@
             position: fixed; inset: 0; background: var(--bg);
             display: flex; justify-content: center; align-items: center; z-index: 1000;
         }
+        /* 追加・修正用CSS */
+.card-row {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    min-height: 100px;
+    padding: 10px;
+}
+
+/* お客様定義の「card」を継承したトランプデザイン */
+.card-ui {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    width: 52px;
+    height: 72px;
+    border-radius: 10px;
+    background: #fdfdfd; /* 白ベース */
+    color: #000;
+    font-weight: bold;
+    font-size: 1.2rem;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.5), 0 0 5px var(--accent);
+    position: relative;
+    border: 1px solid #ddd;
+}
+
+/* ハートやダイヤなど赤いスート用 */
+.card-ui.red { color: #c00; }
+
+/* 裏向きのカード */
+.card-ui.back {
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+    border: 2px solid #fff;
+}
+
+#chatBox {
+    height: 150px;
+    overflow-y: auto;
+    background: rgba(0,0,0,0.4);
+    border: 1px solid rgba(0,255,255,0.2);
+    border-radius: 8px;
+    padding: 10px;
+    text-align: left;
+    font-size: 0.85rem;
+    margin-top: 10px;
+}
     </style>
 </head>
 <body>
@@ -101,35 +147,59 @@
         <div id="sRes" class="result"></div>
     </div>
 
-    <div class="section">
-        <div class="section-title"><span class="label">High & Low</span></div>
-        <div style="margin:20px 0; font-size:0.9rem; opacity:0.8;">BEAT THE DEALER'S CARD</div>
-        <div class="control-row">
-            <input type="number" id="dBet" value="100" min="10">
-            <button onclick="double()">DUEL</button>
-        </div>
-        <div id="dRes" class="result"></div>
+<div class="section">
+    <div class="section-title"><span class="label">Blackjack</span></div>
+    <div id="bjTable" style="margin-bottom:15px; background:rgba(0,0,0,0.3); border-radius:10px; padding:10px;">
+        <div style="font-size:0.8rem; color:var(--accent); margin-bottom:5px;">DEALER</div>
+        <div id="bjDCards" class="card-row"></div>
+        
+        <div style="margin:15px 0; border-top:1px dashed rgba(0,255,255,0.2);"></div>
+        
+        <div id="bjPCards" class="card-row"></div>
+        <div style="font-size:0.8rem; color:var(--accent2); margin-top:5px;">YOU: <span id="bjPScore">0</span></div>
     </div>
+    
+    <div class="control-row" id="bjInit">
+        <input type="number" id="bjBet" value="100">
+        <button onclick="startBJ()">DEAL</button>
+    </div>
+    
+    <div class="control-row" id="bjActions" style="display:none;">
+        <button onclick="socket.emit('bj_hit')" style="border-color:var(--accent2); color:var(--accent2);">HIT</button>
+        <button onclick="standBJ()">STAND</button>
+    </div>
+    <div id="bjRes" class="result"></div>
+</div>
+
+<div class="section">
+    <div class="section-title"><span class="label">High & Low</span></div>
+    <div class="card-row" style="align-items: center; gap: 20px;">
+        <div>
+            <div style="font-size:0.7rem; opacity:0.6; margin-bottom:5px;">CURRENT</div>
+            <div id="hlCurrent" class="card-ui back">?</div>
+        </div>
+        <div style="font-size:1.5rem; color:var(--accent); text-shadow:0 0 10px var(--accent);">➡</div>
+        <div>
+            <div style="font-size:0.7rem; opacity:0.6; margin-bottom:5px;">NEXT</div>
+            <div id="hlNext" class="card-ui back">?</div>
+        </div>
+    </div>
+    
+    <div class="control-row" id="hlInit" style="margin-top:15px;">
+        <input type="number" id="hlBet" value="100">
+        <button onclick="startHL()">DEAL</button>
+    </div>
+    
+    <div class="control-row" id="hlActions" style="display:none; margin-top:15px;">
+        <button onclick="guessHL('high')" style="border-color:var(--accent2); color:var(--accent2);">HIGH ↑</button>
+        <button onclick="guessHL('low')">LOW ↓</button>
+    </div>
+    <div id="hlRes" class="result"></div>
+</div>
 
     <div class="section">
         <div class="section-title"><span class="label">Ranking</span></div>
         <div id="rList" style="text-align:left; padding:10px; font-size:0.9rem;"></div>
-    </div>
-
-    <div class="section">
-        <div class="section-title"><span class="label">Blackjack</span></div>
-        <div id="bjDisplay" style="margin:10px 0;">
-            <div style="font-size:0.8rem; opacity:0.6;">DEALER: <span id="bjDScore">?</span></div>
-            <div id="bjDealerCards" style="min-height:30px; letter-spacing:5px;">--</div>
-            <div style="margin:10px 0; border-top:1px dashed rgba(0,255,255,0.2);"></div>
-            <div id="bjPlayerCards" style="min-height:30px; letter-spacing:5px;">--</div>
-            <div style="font-size:0.8rem; opacity:0.6;">YOU: <span id="bjPScore">0</span></div>
-        </div>
-        <div class="control-row">
-            <input type="number" id="bjBet" value="100" min="10">
-            <button onclick="playBJ()">DEAL</button>
-        </div>
-        <div id="bjRes" class="result"></div>
     </div>
 
     <div class="section" style="grid-column: 1 / -1;">
@@ -220,35 +290,81 @@
         }
     }
 
-    // ブラックジャック実行
-    function playBJ() {
-        const bet = parseInt(document.getElementById('bjBet').value);
-        if (bet > myChips) return alert("INSUFFICIENT CHIPS");
-        socket.emit('bj_request', { bet });
-    }
-
-    socket.on('bj_result', d => {
-        document.getElementById('bjDealerCards').textContent = d.dCards.join(" ");
-        document.getElementById('bjPlayerCards').textContent = d.pCards.join(" ");
-        document.getElementById('bjDScore').textContent = d.dSum;
-        document.getElementById('bjPScore').textContent = d.pSum;
-        
-        myChips = d.newChips;
-        document.getElementById('chips').textContent = myChips.toLocaleString();
-        
-        const resEl = document.getElementById('bjRes');
-        resEl.className = "result " + (d.win > 0 ? "win" : (d.win === 0 ? "lose" : "draw"));
-        resEl.textContent = d.message;
-    });
-
     // Enterキーでチャット送信できるように設定
     document.getElementById('chatInput').addEventListener('keypress', (e) => {
         if (e.key === 'Enter') sendChat();
     });
+
+    // カード描画補助（赤スート判定付き）
+function renderCards(id, cards) {
+    const container = document.getElementById(id);
+    container.innerHTML = cards.map(c => {
+        const isRed = c.suit === '♥' || c.suit === '♦';
+        const isBack = c.rank === '?';
+        return `<div class="card-ui ${isRed ? 'red' : ''} ${isBack ? 'back' : ''}">${isBack ? '?' : c.rank + c.suit}</div>`;
+    }).join("");
+}
+
+// BJ関連
+function startBJ() {
+    socket.emit('bj_start', { bet: parseInt(document.getElementById('bjBet').value) });
+    document.getElementById('bjInit').style.display = 'none';
+    document.getElementById('bjActions').style.display = 'flex';
+}
+
+function standBJ() {
+    socket.emit('bj_stand', { bet: parseInt(document.getElementById('bjBet').value) });
+}
+
+socket.on('bj_update', d => {
+    renderCards('bjDCards', d.dealer);
+    renderCards('bjPCards', d.player);
+});
+
+socket.on('bj_result', d => {
+    renderCards('bjDCards', d.dealer);
+    renderCards('bjPCards', d.player);
+    const res = document.getElementById('bjRes');
+    res.textContent = d.msg;
+    res.className = `result ${d.win > 0 ? 'win' : 'lose'}`;
+    document.getElementById('bjInit').style.display = 'flex';
+    document.getElementById('bjActions').style.display = 'none';
+    if(d.newChips) updateChips(d.newChips);
+});
+
+// H&L関連
+function startHL() {
+    socket.emit('hl_start', { bet: parseInt(document.getElementById('hlBet').value) });
+    document.getElementById('hlInit').style.display = 'none';
+    document.getElementById('hlActions').style.display = 'flex';
+}
+
+function guessHL(choice) {
+    socket.emit('hl_guess', { choice, bet: parseInt(document.getElementById('hlBet').value) });
+}
+
+socket.on('hl_setup', d => {
+    renderCards('hlCurrent', [d.currentCard]);
+    document.getElementById('hlNext').innerHTML = "?";
+    document.getElementById('hlNext').classList.add('back');
+});
+
+socket.on('hl_result', d => {
+    renderCards('hlNext', [d.oldCard]); // めくったカードを表示
+    document.getElementById('hlRes').textContent = d.msg;
+    document.getElementById('hlRes').className = `result ${d.msg === 'WIN' ? 'win' : 'lose'}`;
+    updateChips(d.newChips);
+    setTimeout(() => {
+        renderCards('hlCurrent', [d.oldCard]); // スライド
+        document.getElementById('hlNext').innerHTML = "?";
+        document.getElementById('hlNext').classList.add('back');
+    }, 1200);
+});
     
 </script>
 </body>
 </html>
+
 
 
 
