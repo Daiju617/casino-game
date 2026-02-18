@@ -4,7 +4,7 @@
   "description": "Online Casino Game",
   "main": "app.js",
   "scripts": {
-    "start": "node app.js"
+    "start": "node app.cjs"
   },
   "dependencies": {
     "express": "^4.18.2",
