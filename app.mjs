@@ -10,19 +10,17 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const server = createServer(app);
-const io = new Server(server);
+const io = new Server(server, {
+    cors: { origin: "*" }
+});
 
 // --- データベース接続 ---
 const MONGO_URI = process.env.MONGO_URI; 
 mongoose.connect(MONGO_URI)
-    .then(() => {
-        console.log("✅ MongoDB接続成功：サーバーは正常に稼働しています");
-    })
-    .catch(err => {
-        console.error("❌ MongoDB接続エラー:", err.message);
-    });
+    .then(() => console.log("✅ MongoDB接続成功"))
+    .catch(err => console.error("❌ MongoDB接続エラー:", err.message));
 
-// ユーザーデータの定義
+// スキーマ定義
 const userSchema = new mongoose.Schema({
     name: { type: String, required: true },
     password: { type: String, required: true },
@@ -31,9 +29,6 @@ const userSchema = new mongoose.Schema({
 });
 const User = mongoose.model('User', userSchema);
 
-app.use(express.static(__dirname));
-
-// --- チャットデータの定義 ---
 const chatSchema = new mongoose.Schema({
     userName: String,
     message: String,
@@ -41,43 +36,7 @@ const chatSchema = new mongoose.Schema({
 });
 const Chat = mongoose.model('Chat', chatSchema);
 
-// --- チャット機能の書き換え ---
-socket.on('chat_message', async (msg) => {
-    if (!socket.userName) return;
-    
-    // DBに保存
-    const newChat = new Chat({ userName: socket.userName, message: msg });
-    await newChat.save();
-
-    // 全員にリアルタイム送信
-    io.emit('broadcast', `${socket.userName}: ${msg}`);
-});
-
-// --- ログイン成功時に履歴を送信（login_requestの中に追加） ---
-// socket.emit('login_success', ...) の直後に入れてください
-const history = await Chat.find().sort({ time: -1 }).limit(30); // 最新30件
-socket.emit('chat_history', history.reverse().map(c => `${c.userName}: ${c.message}`));
-
-// --- チャット機能（保存 ＋ お掃除） ---
-socket.on('chat_message', async (msg) => {
-    if (!socket.userName) return;
-    
-    // 1. 新しいチャットを保存
-    const newChat = new Chat({ userName: socket.userName, message: msg });
-    await newChat.save();
-
-    // 2. 【お掃除】最新の100件より古いものを削除
-    // 常に最新100件だけを残すようにDBを整理します
-    const count = await Chat.countDocuments();
-    if (count > 100) {
-        const oldest = await Chat.find().sort({ time: 1 }).limit(count - 100);
-        const idsToDelete = oldest.map(c => c._id);
-        await Chat.deleteMany({ _id: { $in: idsToDelete } });
-    }
-
-    // 全員にリアルタイム送信
-    io.emit('broadcast', `${socket.userName}: ${msg}`);
-});
+app.use(express.static(__dirname));
 
 // --- 共通関数 ---
 const createDeck = () => {
@@ -99,7 +58,7 @@ const getBJValue = (cards) => {
     return sum;
 };
 
-// 状態管理用
+// 状態管理
 let bjGames = {}; 
 let hlCurrentCard = {};
 
@@ -107,96 +66,82 @@ let hlCurrentCard = {};
 io.on('connection', (socket) => {
     console.log('ユーザーが接続しました');
 
-    // --- チャット機能 ---
-    socket.on('chat_message', (msg) => {
-        if (!socket.userName) return;
-        io.emit('broadcast', `${socket.userName}: ${msg}`);
-    });
-
-    // --- ログイン・新規登録 (元のロジックを完全保持) ---
+    // ログイン・新規登録
     socket.on('login_request', async (data) => {
         const { name, password } = data;
         try {
             let user = await User.findOne({ name: name });
             if (!user) {
-                console.log(`新規プレイヤー登録中: ${name}`);
-                user = new User({ 
-                    name: name, password: password, chips: 1000, lastLogin: new Date() 
-                });
+                user = new User({ name: name, password: password, chips: 1000, lastLogin: new Date() });
                 await user.save();
-                socket.userName = name;
-                socket.emit('login_success', { name: user.name, chips: user.chips });
                 io.emit('broadcast', `✨ 新規プレイヤー ${name} さんが来店しました！`);
             } else {
-                if (user.password !== password) {
-                    console.log(`ログイン失敗（パスワード不一致）: ${name}`);
-                    return socket.emit('login_error', "パスワードが正しくありません。");
-                }
-                socket.userName = name;
+                if (user.password !== password) return socket.emit('login_error', "パスワードが違います");
+                
                 const now = new Date();
                 const last = user.lastLogin || new Date(0);
-                const oneDay = 24 * 60 * 60 * 1000;
-                if (now - last > oneDay) {
+                if (now - last > 24 * 60 * 60 * 1000) {
                     user.chips += 500;
                     user.lastLogin = now;
                     await user.save();
-                    io.emit('broadcast', `🎁 ${name} さん、24時間ぶりの来店ボーナス500枚！`);
-                } else {
-                    user.lastLogin = now;
-                    await user.save();
+                    io.emit('broadcast', `🎁 ${name} さん、来店ボーナス500枚！`);
                 }
-                socket.emit('login_success', { name: user.name, chips: user.chips });
             }
-            updateRanking();
-        } catch (err) {
-            console.error("システムエラー:", err);
-            socket.emit('login_error', "サーバーでエラーが発生しました。");
-        }
-    });
+            socket.data.userName = name;
+            socket.emit('login_success', { name: user.name, chips: user.chips });
 
-    // --- スロットロジック (元の倍率設定を保持) ---
-    socket.on('spin_request', async (data) => {
-        try {
-            const user = await User.findOne({ name: socket.userName });
-            if (!user || user.chips < data.bet) return;
-            const symbols = ["🍒", "💎", "7️⃣", "🍋", "⭐"];
-            const result = [
-                symbols[Math.floor(Math.random() * 5)],
-                symbols[Math.floor(Math.random() * 5)],
-                symbols[Math.floor(Math.random() * 5)]
-            ];
-            let multiplier = 0;
-            if (result[0] === result[1] && result[1] === result[2]) {
-                multiplier = (result[0] === "7️⃣") ? 50 : 10;
-            } else if (result[0] === result[1] || result[1] === result[2] || result[0] === result[2]) {
-                multiplier = 2;
-            }
-            const win = data.bet * multiplier;
-// --- チップ更新と削除判定 ---
-            user.chips = user.chips - data.bet + win;
-
-            if (user.chips <= 0) {
-                await User.deleteOne({ _id: user._id });
-                socket.emit('login_error', "チップが0になり、破産しました。データは削除されます。");
-                return; // ここで処理を終了
-            }
-            await user.save();
-            socket.emit('spin_result', { result, win, newChips: user.chips });
+            // ログイン成功時にチャット履歴（最新30件）を送信
+            const history = await Chat.find().sort({ time: -1 }).limit(30);
+            socket.emit('chat_history', history.reverse().map(c => `${c.userName}: ${c.message}`));
+            
             updateRanking();
         } catch (err) { console.error(err); }
     });
 
-    // --- 新・本格ブラックジャック ---
+    // チャット機能（保存 ＋ お掃除）
+    socket.on('chat_message', async (msg) => {
+        if (!socket.data.userName) return;
+        
+        const newChat = new Chat({ userName: socket.data.userName, message: msg });
+        await newChat.save();
+
+        const count = await Chat.countDocuments();
+        if (count > 100) {
+            const oldest = await Chat.find().sort({ time: 1 }).limit(count - 100);
+            await Chat.deleteMany({ _id: { $in: oldest.map(c => c._id) } });
+        }
+        io.emit('broadcast', `${socket.data.userName}: ${msg}`);
+    });
+
+    // スロット
+    socket.on('spin_request', async (data) => {
+        try {
+            const user = await User.findOne({ name: socket.data.userName });
+            if (!user || user.chips < data.bet) return;
+            const symbols = ["🍒", "💎", "7️⃣", "🍋", "⭐"];
+            const result = [symbols[Math.floor(Math.random()*5)], symbols[Math.floor(Math.random()*5)], symbols[Math.floor(Math.random()*5)]];
+            let mult = 0;
+            if (result[0] === result[1] && result[1] === result[2]) mult = (result[0] === "7️⃣") ? 50 : 10;
+            else if (result[0] === result[1] || result[1] === result[2] || result[0] === result[2]) mult = 2;
+            
+            user.chips = user.chips - data.bet + (data.bet * mult);
+            if (user.chips <= 0) {
+                await User.deleteOne({ _id: user._id });
+                return socket.emit('login_error', "破産しました。データは削除されます。");
+            }
+            await user.save();
+            socket.emit('spin_result', { result, win: data.bet * mult, newChips: user.chips });
+            updateRanking();
+        } catch (err) { console.error(err); }
+    });
+
+    // ブラックジャック
     socket.on('bj_start', async (data) => {
-        const user = await User.findOne({ name: socket.userName });
+        const user = await User.findOne({ name: socket.data.userName });
         if (!user || user.chips < data.bet) return;
         const deck = createDeck();
         bjGames[socket.id] = { p: [deck.pop(), deck.pop()], d: [deck.pop(), deck.pop()], deck, bet: data.bet };
-        socket.emit('bj_update', { 
-            player: bjGames[socket.id].p, 
-            dealer: [bjGames[socket.id].d[0], {rank:'?', suit:'?'}],
-            pSum: getBJValue(bjGames[socket.id].p)
-        });
+        socket.emit('bj_update', { player: bjGames[socket.id].p, dealer: [bjGames[socket.id].d[0], {rank:'?', suit:'?'}], pSum: getBJValue(bjGames[socket.id].p) });
     });
 
     socket.on('bj_hit', () => {
@@ -205,56 +150,24 @@ io.on('connection', (socket) => {
         const sum = getBJValue(g.p);
         if (sum > 21) {
             socket.emit('bj_result', { player: g.p, dealer: g.d, msg: "BUST (Lose)", win: 0 });
-            delete bjGames[socket.id];
+            handleBJEnd(socket, g, 0);
         } else {
             socket.emit('bj_update', { player: g.p, dealer: [g.d[0], {rank:'?'}], pSum: sum });
         }
     });
 
-socket.on('bj_stand', async (data) => {
+    socket.on('bj_stand', async () => {
         const g = bjGames[socket.id]; if (!g) return;
-        const user = await User.findOne({ name: socket.userName });
-        
         let dSum = getBJValue(g.d);
-        // ディーラーは17以上になるまで引き続ける
-        while (dSum < 17) { 
-            g.d.push(g.deck.pop()); 
-            dSum = getBJValue(g.d); 
-        }
-        
+        while (dSum < 17) { g.d.push(g.deck.pop()); dSum = getBJValue(g.d); }
         const pSum = getBJValue(g.p);
-        let win = 0;
-        let msg = "";
-
-        if (dSum > 21 || pSum > dSum) {
-            win = Math.floor(g.bet * 2); // 勝利：2倍
-            msg = "WIN!";
-        } else if (pSum === dSum) {
-            win = g.bet; // 引き分け：返金
-            msg = "PUSH";
-        } else {
-            win = 0; // 敗北
-            msg = "LOSE";
-        }
-
-// --- チップ更新と削除判定 ---
-        user.chips = user.chips - g.bet + win;
-
-        if (user.chips <= 0) {
-            await User.deleteOne({ _id: user._id });
-            socket.emit('bj_result', { player: g.p, dealer: g.d, msg: "BANKRUPT (DELETED)", newChips: 0 });
-            return;
-        }
-        await user.save();
-        socket.emit('bj_result', { player: g.p, dealer: g.d, msg: msg, newChips: user.chips });
-        
-        delete bjGames[socket.id];
-        updateRanking();
+        let win = (dSum > 21 || pSum > dSum) ? g.bet * 2 : (pSum === dSum ? g.bet : 0);
+        let msg = (dSum > 21 || pSum > dSum) ? "WIN!" : (pSum === dSum ? "PUSH" : "LOSE");
+        handleBJEnd(socket, g, win, msg);
     });
-    
-// --- ハイアンドロー：妥協なしの完全版 ---
+
+    // ハイアンドロー
     socket.on('hl_start', (data) => {
-        // 最初のカードを引いてクライアントに教える
         const deck = createDeck();
         hlCurrentCard[socket.id] = deck.pop();
         socket.emit('hl_setup', { currentCard: hlCurrentCard[socket.id] });
@@ -262,69 +175,42 @@ socket.on('bj_stand', async (data) => {
 
     socket.on('hl_guess', async (data) => {
         try {
-            const user = await User.findOne({ name: socket.userName });
-            if (!user) return socket.emit('login_error', "再ログインしてください");
-            if (user.chips < data.bet) return; // チップ不足チェック
-
-            const nextCard = createDeck().pop(); // 次のカードを引く
+            const user = await User.findOne({ name: socket.data.userName });
+            if (!user || user.chips < data.bet) return;
+            const nextCard = createDeck().pop();
             const ranks = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+            const curIdx = ranks.indexOf(hlCurrentCard[socket.id].rank);
+            const nxtIdx = ranks.indexOf(nextCard.rank);
+            let win = (nxtIdx === curIdx) ? data.bet : (((data.choice==='high'&&nxtIdx>curIdx)||(data.choice==='low'&&nxtIdx<curIdx)) ? data.bet*2 : 0);
             
-            // 強さ比較 (indexが大きければ強い)
-            const currentIndex = ranks.indexOf(hlCurrentCard[socket.id].rank);
-            const nextIndex = ranks.indexOf(nextCard.rank);
-
-            let win = 0;
-            let msg = "";
-
-            if (nextIndex === currentIndex) {
-                // 引き分け：賭け金そのまま戻し
-                win = data.bet;
-                msg = "DRAW (Push)";
-            } else {
-                const isWin = (data.choice === 'high' && nextIndex > currentIndex) || 
-                              (data.choice === 'low' && nextIndex < currentIndex);
-                
-                if (isWin) {
-                    win = Math.floor(data.bet * 2); // 勝利：2倍
-                    msg = "WIN!";
-                } else {
-                    win = 0; // 敗北
-                    msg = "LOSE";
-                }
-            }
-
-// --- チップ更新と削除判定 ---
             user.chips = user.chips - data.bet + win;
-
             if (user.chips <= 0) {
                 await User.deleteOne({ _id: user._id });
-                socket.emit('hl_result', { oldCard: nextCard, msg: "BANKRUPT", newChips: 0 });
-                return;
+                return socket.emit('hl_result', { oldCard: nextCard, msg: "BANKRUPT", newChips: 0 });
             }
             await user.save();
             hlCurrentCard[socket.id] = nextCard;
-            socket.emit('hl_result', { oldCard: nextCard, msg: msg, newChips: user.chips });
-
-            updateRanking(); // ランキング更新
-        } catch (err) {
-            console.error("HL Error:", err);
-        }
+            socket.emit('hl_result', { oldCard: nextCard, msg: win>data.bet?"WIN!":(win===0?"LOSE":"PUSH"), newChips: user.chips });
+            updateRanking();
+        } catch (err) { console.error(err); }
     });
 
-    // 途中でやめる処理
-    socket.on('hl_collect', async () => {
+    socket.on('disconnect', () => {
+        delete bjGames[socket.id];
         delete hlCurrentCard[socket.id];
-        const user = await User.findOne({ name: socket.userName });
-        socket.emit('hl_finished', { newChips: user ? user.chips : 0 });
-    });
-
-    // --- 管理者用コマンド (デバッグ用) ---
-    socket.on('admin_command', async (d) => {
-        if (d.pass !== "ADMIN_SECRET") return;
-        if (d.act === "up") await User.findOneAndUpdate({ name: d.target }, { chips: d.val });
-        updateRanking();
     });
 });
+
+async function handleBJEnd(socket, g, win, msg) {
+    const user = await User.findOne({ name: socket.data.userName });
+    if (!user) return;
+    user.chips = user.chips - g.bet + win;
+    if (user.chips <= 0) await User.deleteOne({ _id: user._id });
+    else await user.save();
+    socket.emit('bj_result', { player: g.p, dealer: g.d, msg, newChips: user.chips });
+    delete bjGames[socket.id];
+    updateRanking();
+}
 
 async function updateRanking() {
     try {
@@ -334,9 +220,4 @@ async function updateRanking() {
 }
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
-
-
-
-
-
+server.listen(PORT, "0.0.0.0", () => console.log(`🚀 Server running on port ${PORT}`));
