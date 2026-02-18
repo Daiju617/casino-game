@@ -28,6 +28,52 @@ const User = mongoose.model('User', userSchema);
 
 app.use(express.static(__dirname));
 
+// --- チャットデータの定義 ---
+const chatSchema = new mongoose.Schema({
+    userName: String,
+    message: String,
+    time: { type: Date, default: Date.now }
+});
+const Chat = mongoose.model('Chat', chatSchema);
+
+// --- チャット機能の書き換え ---
+socket.on('chat_message', async (msg) => {
+    if (!socket.userName) return;
+    
+    // DBに保存
+    const newChat = new Chat({ userName: socket.userName, message: msg });
+    await newChat.save();
+
+    // 全員にリアルタイム送信
+    io.emit('broadcast', `${socket.userName}: ${msg}`);
+});
+
+// --- ログイン成功時に履歴を送信（login_requestの中に追加） ---
+// socket.emit('login_success', ...) の直後に入れてください
+const history = await Chat.find().sort({ time: -1 }).limit(30); // 最新30件
+socket.emit('chat_history', history.reverse().map(c => `${c.userName}: ${c.message}`));
+
+// --- チャット機能（保存 ＋ お掃除） ---
+socket.on('chat_message', async (msg) => {
+    if (!socket.userName) return;
+    
+    // 1. 新しいチャットを保存
+    const newChat = new Chat({ userName: socket.userName, message: msg });
+    await newChat.save();
+
+    // 2. 【お掃除】最新の100件より古いものを削除
+    // 常に最新100件だけを残すようにDBを整理します
+    const count = await Chat.countDocuments();
+    if (count > 100) {
+        const oldest = await Chat.find().sort({ time: 1 }).limit(count - 100);
+        const idsToDelete = oldest.map(c => c._id);
+        await Chat.deleteMany({ _id: { $in: idsToDelete } });
+    }
+
+    // 全員にリアルタイム送信
+    io.emit('broadcast', `${socket.userName}: ${msg}`);
+});
+
 // --- 共通関数 ---
 const createDeck = () => {
     const suits = ['♠', '♥', '♦', '♣'];
@@ -284,6 +330,7 @@ async function updateRanking() {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+
 
 
 
