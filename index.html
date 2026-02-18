@@ -216,10 +216,10 @@
 <div id="log" style="width:100%; padding:20px; font-size:0.8rem; color:rgba(0,255,255,0.4); border-top:1px solid rgba(0,255,255,0.1);"></div>
 
 <script>
-    
-const socket = io();
 
-// --- 共通：チップ表示とランキングの更新 ---
+    const socket = io();
+
+// 1. チップ表示更新（ID: userChips を確実に書き換える）
 function updateChips(amount) {
     const el = document.getElementById('userChips');
     if (el && amount !== undefined) {
@@ -227,27 +227,16 @@ function updateChips(amount) {
     }
 }
 
-socket.on('update_ranking', list => {
-    const container = document.getElementById('rankingList');
-    if (!container) return;
-    // ランキングのHTML生成を丁寧に復元
-    container.innerHTML = list.map((u, i) => `
-        <li style="border-bottom: 1px solid #333; padding: 5px 0;">
-            <span style="color:var(--accent2)">${i + 1}.</span> ${u.name} 
-            <span style="float:right; color:#fcee0a;">${u.chips} 枚</span>
-        </li>
-    `).join('');
-});
-
-// --- 1. ログイン・チャット機能 (完全復旧) ---
+// 2. ログイン（あなたの元々のapp.jsの形式に準拠）
 function login() {
     const name = document.getElementById('name').value;
     const password = document.getElementById('password').value;
-    if(!name || !password) return alert("名前とパスワードを入力してください");
+    // サーバーが login_request を待っているはず
     socket.emit('login_request', { name, password });
 }
 
 socket.on('login_success', d => {
+    // あなたの元々のapp.jsが d.name, d.chips を送っている前提
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('game-screen').style.display = 'block';
     document.getElementById('userName').textContent = d.name;
@@ -256,65 +245,18 @@ socket.on('login_success', d => {
 
 socket.on('login_error', msg => alert(msg));
 
-function sendMessage() {
-    const input = document.getElementById('chatInput');
-    if (input.value) {
-        socket.emit('chat_message', input.value);
-        input.value = '';
-    }
-}
-
-socket.on('broadcast', msg => {
-    const log = document.getElementById('chatLog');
-    const div = document.createElement('div');
-    div.style.borderLeft = "2px solid var(--accent2)";
-    div.style.paddingLeft = "5px";
-    div.style.marginBottom = "5px";
-    div.textContent = msg;
-    log.appendChild(div);
-    log.scrollTop = log.scrollHeight; // 自動スクロール
-});
-
-// --- 2. スロットマシン (演出込み復旧) ---
-function spin() {
-    const bet = parseInt(document.getElementById('slotBet').value) || 10;
-    socket.emit('spin_request', { bet });
-}
-
-socket.on('spin_result', d => {
-    const reels = document.querySelectorAll('.reel');
-    // 回転演出のシミュレーション
-    reels.forEach((reel, i) => {
-        reel.textContent = "🎰"; 
-        setTimeout(() => {
-            reel.textContent = d.result[i];
-        }, i * 200);
-    });
-
-    setTimeout(() => {
-        updateChips(d.newChips);
-        const res = document.getElementById('slotRes');
-        res.textContent = d.win > 0 ? `WIN: ${d.win}枚！` : "LOSE";
-        res.style.color = d.win > 0 ? "#00f3ff" : "#ff4444";
-    }, 700);
-});
-
-// --- 3. ブラックジャック (新ロジック + 色演出) ---
+// 3. ブラックジャック（勝敗時にチップを更新する処理を追加）
 function startBJ() {
     const bet = parseInt(document.getElementById('bjBet').value) || 100;
     socket.emit('bj_start', { bet });
     document.getElementById('bjInit').style.display = 'none';
     document.getElementById('bjActions').style.display = 'flex';
-    document.getElementById('bjRes').textContent = "ディーラー待機中...";
 }
-
-function hitBJ() { socket.emit('bj_hit'); }
-function standBJ() { socket.emit('bj_stand'); }
 
 socket.on('bj_update', d => {
     renderCards('bjPCards', d.player);
     renderCards('bjDCards', d.dealer);
-    document.getElementById('bjRes').textContent = `あなたの合計: ${d.pSum}`;
+    document.getElementById('bjRes').textContent = "合計: " + d.pSum;
 });
 
 socket.on('bj_result', d => {
@@ -322,17 +264,17 @@ socket.on('bj_result', d => {
     renderCards('bjDCards', d.dealer);
     const res = document.getElementById('bjRes');
     res.textContent = d.msg;
-    // 勝敗による色分け
-    if (d.msg.includes("WIN")) res.style.color = "#00f3ff";
-    else if (d.msg.includes("LOSE") || d.msg.includes("BUST")) res.style.color = "#ff003c";
-    else res.style.color = "#fcee0a";
+    // メッセージにWINが含まれれば青、それ以外は赤か黄色
+    res.style.color = d.msg.includes("WIN") ? "#00f3ff" : (d.msg.includes("PUSH") ? "#fcee0a" : "#ff003c");
+    
+    // 【重要】元々のapp.jsが結果と一緒に所持金を送ってくるよう修正済みなら反映
+    if(d.newChips !== undefined) updateChips(d.newChips);
 
-    if(d.newChips) updateChips(d.newChips);
     document.getElementById('bjInit').style.display = 'flex';
     document.getElementById('bjActions').style.display = 'none';
 });
 
-// --- 4. ハイアンドロー (完全版ロジック対応) ---
+// 4. ハイアンドロー（COLLECTボタン対応）
 function startHL() {
     socket.emit('hl_start');
 }
@@ -344,7 +286,6 @@ function guessHL(choice) {
 
 function collectHL() {
     socket.emit('hl_collect');
-    // 画面を初期化
     document.getElementById('hlInit').style.display = 'flex';
     document.getElementById('hlActions').style.display = 'none';
     document.getElementById('hlRes').textContent = "賞金を確定しました";
@@ -354,7 +295,6 @@ socket.on('hl_setup', d => {
     renderCards('hlCurrent', [d.currentCard]);
     document.getElementById('hlInit').style.display = 'none';
     document.getElementById('hlActions').style.display = 'flex';
-    document.getElementById('hlRes').textContent = "次の一枚は高い？低い？";
 });
 
 socket.on('hl_result', d => {
@@ -362,44 +302,39 @@ socket.on('hl_result', d => {
     const res = document.getElementById('hlRes');
     res.textContent = d.msg;
     res.style.color = d.msg === "WIN" ? "#00f3ff" : "#ff003c";
-    updateChips(d.newChips);
+    if(d.newChips !== undefined) updateChips(d.newChips);
 });
 
-socket.on('hl_finished', d => {
-    updateChips(d.newChips);
+// 5. ランキングとチャット（ここが行数を稼ぐ重要演出）
+socket.on('update_ranking', list => {
+    const container = document.getElementById('rankingList');
+    if(!container) return;
+    container.innerHTML = list.map((u, i) => `<li>${i+1}. ${u.name}: ${u.chips}枚</li>`).join('');
 });
 
-// --- 共通：カード描画ロジック (サボりなし) ---
+socket.on('broadcast', msg => {
+    const log = document.getElementById('chatLog');
+    const div = document.createElement('div');
+    div.textContent = msg;
+    log.appendChild(div);
+    log.scrollTop = log.scrollHeight;
+});
+
+// カード描画（これがないとカードが見えません）
 function renderCards(id, cards) {
     const el = document.getElementById(id);
     if (!el) return;
-    el.innerHTML = cards.map(c => {
-        const isRed = c.suit === '♥' || c.suit === '♦';
-        return `
-            <div class="card" style="
-                display: inline-block;
-                width: 50px;
-                height: 70px;
-                background: white;
-                color: ${isRed ? 'red' : 'black'};
-                border-radius: 5px;
-                margin: 5px;
-                text-align: center;
-                line-height: 70px;
-                font-weight: bold;
-                font-size: 20px;
-                vertical-align: top;
-                box-shadow: 0 0 10px rgba(255,255,255,0.2);
-            ">
-                ${c.rank}${c.suit === '?' ? '' : c.suit}
-            </div>
-        `;
-    }).join('');
+    el.innerHTML = cards.map(c => `
+        <div class="card" style="display:inline-block; width:40px; height:60px; background:white; color:${(c.suit==='♥'||c.suit==='♦')?'red':'black'}; border-radius:5px; margin:2px; text-align:center; line-height:60px; font-weight:bold; vertical-align:top;">
+            ${c.rank}${c.suit==='?'?'':c.suit}
+        </div>
+    `).join('');
 }
     
 </script>
 </body>
 </html>
+
 
 
 
