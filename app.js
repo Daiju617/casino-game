@@ -32,6 +32,57 @@ app.use(express.static(__dirname));
 io.on('connection', (socket) => {
     console.log('ユーザーが接続しました');
 
+    // --- チャット機能 ---
+    socket.on('chat_message', (msg) => {
+        if (!socket.userName) return;
+        // 全員に「名前: メッセージ」の形式で送信
+        io.emit('broadcast', `${socket.userName}: ${msg}`);
+    });
+
+    // --- ブラックジャック機能 ---
+    socket.on('bj_request', async (data) => {
+        const user = await User.findOne({ name: socket.userName });
+        if (!user || user.chips < data.bet) return;
+
+        // カードデッキの作成と配布（簡易版）
+        const draw = () => Math.floor(Math.random() * 10) + 1; // 1-10の数値
+        const pCards = [draw(), draw()];
+        const dCards = [draw(), draw()];
+        
+        const getSum = (cards) => cards.reduce((a, b) => a + b, 0);
+        let pSum = getSum(pCards);
+        let dSum = getSum(dCards);
+
+        // ディーラーは17以上になるまで引く
+        while(dSum < 17) {
+            dCards.push(draw());
+            dSum = getSum(dCards);
+        }
+
+        let win = 0;
+        let msg = "";
+
+        if (pSum > 21) {
+            msg = "BUST (Lose)";
+        } else if (dSum > 21 || pSum > dSum) {
+            win = data.bet * 2;
+            msg = `WIN! (${pSum} vs ${dSum})`;
+        } else if (pSum === dSum) {
+            win = data.bet;
+            msg = `PUSH (${pSum})`;
+        } else {
+            msg = `LOSE (${pSum} vs ${dSum})`;
+        }
+
+        user.chips = user.chips - data.bet + win;
+        await user.save();
+        
+        socket.emit('bj_result', { 
+            pCards, dCards, pSum, dSum, win, message: msg, newChips: user.chips 
+        });
+        updateRanking();
+    });
+
     // 【ログイン・新規登録の修正】
     socket.on('login_request', async (data) => {
         const { name, password } = data;
@@ -149,3 +200,4 @@ async function updateRanking() {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
