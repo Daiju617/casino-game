@@ -121,7 +121,14 @@ io.on('connection', (socket) => {
                 multiplier = 2;
             }
             const win = data.bet * multiplier;
+// --- チップ更新と削除判定 ---
             user.chips = user.chips - data.bet + win;
+
+            if (user.chips <= 0) {
+                await User.deleteOne({ _id: user._id });
+                socket.emit('login_error', "チップが0になり、破産しました。データは削除されます。");
+                return; // ここで処理を終了
+            }
             await user.save();
             socket.emit('spin_result', { result, win, newChips: user.chips });
             updateRanking();
@@ -179,16 +186,16 @@ socket.on('bj_stand', async (data) => {
             msg = "LOSE";
         }
 
-        // ここでチップを確実に更新
+// --- チップ更新と削除判定 ---
         user.chips = user.chips - g.bet + win;
-        await user.save();
 
-        socket.emit('bj_result', { 
-            player: g.p, 
-            dealer: g.d, 
-            msg: msg, 
-            newChips: user.chips 
-        });
+        if (user.chips <= 0) {
+            await User.deleteOne({ _id: user._id });
+            socket.emit('bj_result', { player: g.p, dealer: g.d, msg: "BANKRUPT (DELETED)", newChips: 0 });
+            return;
+        }
+        await user.save();
+        socket.emit('bj_result', { player: g.p, dealer: g.d, msg: msg, newChips: user.chips });
         
         delete bjGames[socket.id];
         updateRanking();
@@ -235,18 +242,17 @@ socket.on('bj_stand', async (data) => {
                 }
             }
 
-            // DB更新
+// --- チップ更新と削除判定 ---
             user.chips = user.chips - data.bet + win;
-            await user.save();
 
-            // 現在のカードを「次のカード」に更新して、結果を送信
+            if (user.chips <= 0) {
+                await User.deleteOne({ _id: user._id });
+                socket.emit('hl_result', { oldCard: nextCard, msg: "BANKRUPT", newChips: 0 });
+                return;
+            }
+            await user.save();
             hlCurrentCard[socket.id] = nextCard;
-            
-            socket.emit('hl_result', { 
-                oldCard: nextCard, // 画面に表示する「めくられたカード」
-                msg: msg, 
-                newChips: user.chips 
-            });
+            socket.emit('hl_result', { oldCard: nextCard, msg: msg, newChips: user.chips });
 
             updateRanking(); // ランキング更新
         } catch (err) {
@@ -278,5 +284,6 @@ async function updateRanking() {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+
 
 
