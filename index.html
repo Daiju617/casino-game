@@ -330,18 +330,27 @@ socket.on('bj_update', d => {
     renderCards('bjPCards', d.player);
 });
 
+    // --- ブラックジャック結果受信 ---
 socket.on('bj_result', d => {
     renderCards('bjDCards', d.dealer);
     renderCards('bjPCards', d.player);
     
-    const res = document.getElementById('bjRes');
-    res.textContent = d.msg;
+    const resElem = document.getElementById('bjRes');
+    resElem.textContent = d.msg;
     
-    // ★ここを追加！画面のチップを更新
-    if (d.newChips !== undefined) {
-        updateChips(d.newChips);
+    // 【文字色の指定】
+    if (d.msg.includes("WIN")) {
+        resElem.style.color = "#00f3ff"; // サイバーブルー（勝利）
+        resElem.style.textShadow = "0 0 10px #00f3ff";
+    } else if (d.msg.includes("LOSE") || d.msg.includes("BUST")) {
+        resElem.style.color = "#ff003c"; // ネオンレッド（敗北）
+        resElem.style.textShadow = "0 0 10px #ff003c";
+    } else {
+        resElem.style.color = "#fcee0a"; // イエロー（引き分け）
+        resElem.style.textShadow = "0 0 10px #fcee0a";
     }
-
+    
+    document.getElementById('userChips').textContent = d.newChips;
     document.getElementById('bjInit').style.display = 'flex';
     document.getElementById('bjActions').style.display = 'none';
 });
@@ -365,27 +374,32 @@ socket.on('hl_setup', d => {
     document.getElementById('hlRes').textContent = "HIGHかLOWを予想してください";
 });
 
+// --- ハイアンドロー結果受信 ---
 socket.on('hl_result', d => {
-    // 1. めくられた新しいカードを表示する
     renderCards('hlCurrent', [d.oldCard]); 
     
-    // 2. 勝敗メッセージを表示
     const resElem = document.getElementById('hlRes');
     resElem.textContent = d.msg;
     
-    // 3. 重要：チップの表示を最新状態に更新する
+    // 【文字色の指定】
+    if (d.msg === "WIN!") {
+        resElem.style.color = "#00f3ff"; // 勝利
+        resElem.style.textShadow = "0 0 10px #00f3ff";
+    } else if (d.msg === "LOSE") {
+        resElem.style.color = "#ff003c"; // 敗北
+        resElem.style.textShadow = "0 0 10px #ff003c";
+    } else {
+        resElem.style.color = "#fcee0a"; // 引き分け(DRAW)
+        resElem.style.textShadow = "0 0 10px #fcee0a";
+    }
+
     document.getElementById('userChips').textContent = d.newChips;
-
-    // 勝敗に応じた色付け（任意）
-    if(d.msg.includes("WIN")) resElem.style.color = "var(--accent2)";
-    else if(d.msg.includes("LOSE")) resElem.style.color = "#ff4444";
-    else resElem.style.color = "#fff";
 });
-
+    
 socket.on('hl_finished', d => {
-    // 終了時のリセット処理
     document.getElementById('hlInit').style.display = 'flex';
     document.getElementById('hlActions').style.display = 'none';
+    // 終了時も念のためチップを最新にする
     document.getElementById('userChips').textContent = d.newChips;
 });
 
@@ -405,6 +419,7 @@ socket.on('hl_finished', d => {
 </script>
 </body>
 </html>
+
 
 
 
