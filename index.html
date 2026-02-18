@@ -234,6 +234,14 @@
 
     socket.on('login_error', m => document.getElementById('err').textContent = m);
 
+    // 画面のチップ表示を更新する関数
+function updateChips(amount) {
+    const chipDisplay = document.getElementById('userChips'); // HTMLのチップ表示ID
+    if (chipDisplay) {
+        chipDisplay.textContent = amount;
+    }
+}
+
     function spin() {
         const bet = parseInt(document.getElementById('sBet').value);
         if(bet > myChips) return alert("INSUFFICIENT CHIPS");
@@ -325,12 +333,17 @@ socket.on('bj_update', d => {
 socket.on('bj_result', d => {
     renderCards('bjDCards', d.dealer);
     renderCards('bjPCards', d.player);
+    
     const res = document.getElementById('bjRes');
     res.textContent = d.msg;
-    res.className = `result ${d.win > 0 ? 'win' : 'lose'}`;
+    
+    // ★ここを追加！画面のチップを更新
+    if (d.newChips !== undefined) {
+        updateChips(d.newChips);
+    }
+
     document.getElementById('bjInit').style.display = 'flex';
     document.getElementById('bjActions').style.display = 'none';
-    if(d.newChips) updateChips(d.newChips);
 });
 
 // H&L関連
@@ -345,21 +358,35 @@ function guessHL(choice) {
 }
 
 socket.on('hl_setup', d => {
+    // 最初の1枚を表示して、操作ボタンを出す
     renderCards('hlCurrent', [d.currentCard]);
-    document.getElementById('hlNext').innerHTML = "?";
-    document.getElementById('hlNext').classList.add('back');
+    document.getElementById('hlInit').style.display = 'none';
+    document.getElementById('hlActions').style.display = 'flex';
+    document.getElementById('hlRes').textContent = "HIGHかLOWを予想してください";
 });
 
 socket.on('hl_result', d => {
-    renderCards('hlNext', [d.oldCard]); // めくったカードを表示
-    document.getElementById('hlRes').textContent = d.msg;
-    document.getElementById('hlRes').className = `result ${d.msg === 'WIN' ? 'win' : 'lose'}`;
-    updateChips(d.newChips);
-    setTimeout(() => {
-        renderCards('hlCurrent', [d.oldCard]); // スライド
-        document.getElementById('hlNext').innerHTML = "?";
-        document.getElementById('hlNext').classList.add('back');
-    }, 1200);
+    // 1. めくられた新しいカードを表示する
+    renderCards('hlCurrent', [d.oldCard]); 
+    
+    // 2. 勝敗メッセージを表示
+    const resElem = document.getElementById('hlRes');
+    resElem.textContent = d.msg;
+    
+    // 3. 重要：チップの表示を最新状態に更新する
+    document.getElementById('userChips').textContent = d.newChips;
+
+    // 勝敗に応じた色付け（任意）
+    if(d.msg.includes("WIN")) resElem.style.color = "var(--accent2)";
+    else if(d.msg.includes("LOSE")) resElem.style.color = "#ff4444";
+    else resElem.style.color = "#fff";
+});
+
+socket.on('hl_finished', d => {
+    // 終了時のリセット処理
+    document.getElementById('hlInit').style.display = 'flex';
+    document.getElementById('hlActions').style.display = 'none';
+    document.getElementById('userChips').textContent = d.newChips;
 });
 
     function collectHL() {
@@ -378,6 +405,7 @@ socket.on('hl_finished', d => {
 </script>
 </body>
 </html>
+
 
 
 
