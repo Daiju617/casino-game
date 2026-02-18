@@ -115,6 +115,31 @@
         <div class="section-title"><span class="label">Ranking</span></div>
         <div id="rList" style="text-align:left; padding:10px; font-size:0.9rem;"></div>
     </div>
+
+    <div class="section">
+        <div class="section-title"><span class="label">Blackjack</span></div>
+        <div id="bjDisplay" style="margin:10px 0;">
+            <div style="font-size:0.8rem; opacity:0.6;">DEALER: <span id="bjDScore">?</span></div>
+            <div id="bjDealerCards" style="min-height:30px; letter-spacing:5px;">--</div>
+            <div style="margin:10px 0; border-top:1px dashed rgba(0,255,255,0.2);"></div>
+            <div id="bjPlayerCards" style="min-height:30px; letter-spacing:5px;">--</div>
+            <div style="font-size:0.8rem; opacity:0.6;">YOU: <span id="bjPScore">0</span></div>
+        </div>
+        <div class="control-row">
+            <input type="number" id="bjBet" value="100" min="10">
+            <button onclick="playBJ()">DEAL</button>
+        </div>
+        <div id="bjRes" class="result"></div>
+    </div>
+
+    <div class="section" style="grid-column: 1 / -1;">
+        <div class="section-title"><span class="label">Global Chat</span></div>
+        <div class="control-row">
+            <input type="text" id="chatInput" placeholder="MESSAGE..." style="width:70%;">
+            <button onclick="sendChat()">SEND</button>
+        </div>
+    </div>
+    
 </main>
 
 <div id="log" style="width:100%; padding:20px; font-size:0.8rem; color:rgba(0,255,255,0.4); border-top:1px solid rgba(0,255,255,0.1);"></div>
@@ -185,8 +210,45 @@
         const l = document.getElementById('log');
         l.innerHTML = `<div>> ${m}</div>` + l.innerHTML;
     });
+
+    // チャット送信
+    function sendChat() {
+        const input = document.getElementById('chatInput');
+        if (input.value) {
+            socket.emit('chat_message', input.value);
+            input.value = "";
+        }
+    }
+
+    // ブラックジャック実行
+    function playBJ() {
+        const bet = parseInt(document.getElementById('bjBet').value);
+        if (bet > myChips) return alert("INSUFFICIENT CHIPS");
+        socket.emit('bj_request', { bet });
+    }
+
+    socket.on('bj_result', d => {
+        document.getElementById('bjDealerCards').textContent = d.dCards.join(" ");
+        document.getElementById('bjPlayerCards').textContent = d.pCards.join(" ");
+        document.getElementById('bjDScore').textContent = d.dSum;
+        document.getElementById('bjPScore').textContent = d.pSum;
+        
+        myChips = d.newChips;
+        document.getElementById('chips').textContent = myChips.toLocaleString();
+        
+        const resEl = document.getElementById('bjRes');
+        resEl.className = "result " + (d.win > 0 ? "win" : (d.win === 0 ? "lose" : "draw"));
+        resEl.textContent = d.message;
+    });
+
+    // Enterキーでチャット送信できるように設定
+    document.getElementById('chatInput').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') sendChat();
+    });
+    
 </script>
 </body>
 </html>
+
 
 
