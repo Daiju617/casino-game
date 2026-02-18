@@ -373,10 +373,26 @@ function renderCards(id, cards) {
         return `<div class="card-ui ${isRed ? 'red' : ''}">${c.rank}${c.suit}</div>`;
     }).join('');
 }
+
+    // サーバーから過去ログが届いたら表示する
+socket.on('chat_history', (msgs) => {
+    const log = document.getElementById('log');
+    log.innerHTML = ""; // 一旦クリア（二重表示防止）
+    msgs.forEach(msg => {
+        const div = document.createElement('div');
+        div.style.borderLeft = "2px solid var(--accent)";
+        div.style.paddingLeft = "8px";
+        div.style.marginBottom = "4px";
+        div.textContent = msg;
+        log.appendChild(div);
+    });
+    log.scrollTop = log.scrollHeight;
+});
     
 </script>
 </body>
 </html>
+
 
 
 
