@@ -194,34 +194,71 @@ socket.on('bj_stand', async (data) => {
         updateRanking();
     });
     
-    // --- 新・ハイアンドロー ---
-    socket.on('hl_start', () => {
-        hlCurrentCard[socket.id] = createDeck().pop();
+// --- ハイアンドロー：妥協なしの完全版 ---
+    socket.on('hl_start', (data) => {
+        // 最初のカードを引いてクライアントに教える
+        const deck = createDeck();
+        hlCurrentCard[socket.id] = deck.pop();
         socket.emit('hl_setup', { currentCard: hlCurrentCard[socket.id] });
     });
 
     socket.on('hl_guess', async (data) => {
-        const user = await User.findOne({ name: socket.userName });
-        if (!user || !hlCurrentCard[socket.id]) return;
-        const next = createDeck().pop();
-        const ranks = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
-        const isWin = (data.choice === 'high' && ranks.indexOf(next.rank) > ranks.indexOf(hlCurrentCard[socket.id].rank)) ||
-                      (data.choice === 'low' && ranks.indexOf(next.rank) < ranks.indexOf(hlCurrentCard[socket.id].rank));
-        let win = (next.rank === hlCurrentCard[socket.id].rank) ? data.bet : (isWin ? data.bet * 2 : 0);
-        user.chips = user.chips - data.bet + win;
-        await user.save();
-        hlCurrentCard[socket.id] = next;
-        socket.emit('hl_result', { oldCard: next, msg: win > 0 ? "WIN" : "LOSE", newChips: user.chips });
-        updateRanking();
+        try {
+            const user = await User.findOne({ name: socket.userName });
+            if (!user) return socket.emit('login_error', "再ログインしてください");
+            if (user.chips < data.bet) return; // チップ不足チェック
+
+            const nextCard = createDeck().pop(); // 次のカードを引く
+            const ranks = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+            
+            // 強さ比較 (indexが大きければ強い)
+            const currentIndex = ranks.indexOf(hlCurrentCard[socket.id].rank);
+            const nextIndex = ranks.indexOf(nextCard.rank);
+
+            let win = 0;
+            let msg = "";
+
+            if (nextIndex === currentIndex) {
+                // 引き分け：賭け金そのまま戻し
+                win = data.bet;
+                msg = "DRAW (Push)";
+            } else {
+                const isWin = (data.choice === 'high' && nextIndex > currentIndex) || 
+                              (data.choice === 'low' && nextIndex < currentIndex);
+                
+                if (isWin) {
+                    win = Math.floor(data.bet * 2); // 勝利：2倍
+                    msg = "WIN!";
+                } else {
+                    win = 0; // 敗北
+                    msg = "LOSE";
+                }
+            }
+
+            // DB更新
+            user.chips = user.chips - data.bet + win;
+            await user.save();
+
+            // 現在のカードを「次のカード」に更新して、結果を送信
+            hlCurrentCard[socket.id] = nextCard;
+            
+            socket.emit('hl_result', { 
+                oldCard: nextCard, // 画面に表示する「めくられたカード」
+                msg: msg, 
+                newChips: user.chips 
+            });
+
+            updateRanking(); // ランキング更新
+        } catch (err) {
+            console.error("HL Error:", err);
+        }
     });
 
-    // ハイアンドローの賞金を確定して終了する
+    // 途中でやめる処理
     socket.on('hl_collect', async () => {
-        const user = await User.findOne({ name: socket.userName });
-        // HLは1回ごとにチップを更新する現在の仕様なら、
-        // 画面上の表示をリセットするだけでOK
         delete hlCurrentCard[socket.id];
-        socket.emit('hl_finished', { newChips: user.chips });
+        const user = await User.findOne({ name: socket.userName });
+        socket.emit('hl_finished', { newChips: user ? user.chips : 0 });
     });
 
     // --- 管理者用コマンド (デバッグ用) ---
@@ -241,4 +278,5 @@ async function updateRanking() {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+
 
