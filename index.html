@@ -193,6 +193,7 @@
     <div class="control-row" id="hlActions" style="display:none; margin-top:15px;">
         <button onclick="guessHL('high')" style="border-color:var(--accent2); color:var(--accent2);">HIGH ↑</button>
         <button onclick="guessHL('low')">LOW ↓</button>
+        <button onclick="collectHL()" style="border-color:#ffcc00; color:#ffcc00;">COLLECT (終了)</button>
     </div>
     <div id="hlRes" class="result"></div>
 </div>
@@ -360,10 +361,24 @@ socket.on('hl_result', d => {
         document.getElementById('hlNext').classList.add('back');
     }, 1200);
 });
+
+    function collectHL() {
+    socket.emit('hl_collect');
+    // 画面を初期状態に戻す
+    document.getElementById('hlInit').style.display = 'flex';
+    document.getElementById('hlActions').style.display = 'none';
+    document.getElementById('hlRes').textContent = "賞金を確定しました";
+}
+
+// サーバーから終了通知が来た時の処理（念のため）
+socket.on('hl_finished', d => {
+    updateChips(d.newChips);
+});
     
 </script>
 </body>
 </html>
+
 
 
 
