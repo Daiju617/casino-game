@@ -217,49 +217,41 @@
 
 <script>
 
-const socket = io();
+    const socket = io();
 
-// --- 共通：チップ表示とランキングの更新 ---
+// 1. チップ表示（HTMLの id="chips" に合わせました）
 function updateChips(amount) {
-    const el = document.getElementById('userChips');
+    const el = document.getElementById('chips');
     if (el && amount !== undefined) {
         el.textContent = amount;
     }
 }
 
-// ランキング表示の復元
-socket.on('update_ranking', list => {
-    const container = document.getElementById('rankingList');
-    if (!container) return;
-    container.innerHTML = list.map((u, i) => `
-        <li style="border-bottom: 1px solid #333; padding: 5px 0;">
-            <span style="color:var(--accent2)">${i + 1}.</span> ${u.name} 
-            <span style="float:right; color:#fcee0a;">${u.chips} 枚</span>
-        </li>
-    `).join('');
-});
-
-// --- 1. ログイン機能 (app.jsの'login_request'に完全準拠) ---
+// 2. ログイン（HTMLの id="uName", id="uPass" に合わせました）
 function login() {
-    const name = document.getElementById('name').value;
-    const password = document.getElementById('password').value;
-    if(!name || !password) return alert("名前とパスワードを入力してください");
+    const name = document.getElementById('uName').value;
+    const password = document.getElementById('uPass').value;
+    const err = document.getElementById('err');
     
-    // app.js側の socket.on('login_request', ...) に合わせる
+    if(!name || !password) {
+        err.textContent = "名前とパスワードを入力してください";
+        return;
+    }
     socket.emit('login_request', { name: name, password: password });
 }
 
 socket.on('login_success', d => {
-    document.getElementById('login-screen').style.display = 'none';
-    document.getElementById('game-screen').style.display = 'block';
-    document.getElementById('userName').textContent = d.name;
-    updateChips(d.chips); // ログイン時の所持金反映
+    document.getElementById('loginOverlay').style.display = 'none';
+    document.getElementById('myName').textContent = d.name;
+    updateChips(d.chips);
 });
 
-socket.on('login_error', msg => alert(msg));
+socket.on('login_error', msg => {
+    document.getElementById('err').textContent = msg;
+});
 
-// チャット機能
-function sendMessage() {
+// 3. チャット（HTMLの id="chatInput", id="log" に合わせました）
+function sendChat() {
     const input = document.getElementById('chatInput');
     if (input.value) {
         socket.emit('chat_message', input.value);
@@ -268,35 +260,36 @@ function sendMessage() {
 }
 
 socket.on('broadcast', msg => {
-    const log = document.getElementById('chatLog');
+    const log = document.getElementById('log');
     const div = document.createElement('div');
-    div.style.marginBottom = "5px";
+    div.style.borderLeft = "2px solid var(--accent)";
+    div.style.paddingLeft = "8px";
+    div.style.marginBottom = "4px";
     div.textContent = msg;
     log.appendChild(div);
     log.scrollTop = log.scrollHeight;
 });
 
-// --- 2. スロットマシン (app.jsの'spin_result'に準拠) ---
+// 4. スロット（HTMLの id="slotDisplay", id="sBet", id="sRes" に合わせました）
 function spin() {
-    const bet = parseInt(document.getElementById('slotBet').value) || 10;
+    const bet = parseInt(document.getElementById('sBet').value) || 10;
     socket.emit('spin_request', { bet: bet });
 }
 
 socket.on('spin_result', d => {
-    const reels = document.querySelectorAll('.reel');
-    reels.forEach((reel, i) => {
-        reel.textContent = "🎰"; 
-        setTimeout(() => { reel.textContent = d.result[i]; }, i * 200);
-    });
+    const display = document.getElementById('slotDisplay');
+    display.textContent = "🎰 🎰 🎰"; 
+    
     setTimeout(() => {
-        updateChips(d.newChips); // サーバーから届く newChips を反映
-        const res = document.getElementById('slotRes');
+        display.textContent = d.result.join(' ');
+        updateChips(d.newChips);
+        const res = document.getElementById('sRes');
         res.textContent = d.win > 0 ? `WIN: ${d.win}枚！` : "LOSE";
-        res.style.color = d.win > 0 ? "#00f3ff" : "#ff4444";
-    }, 700);
+        res.className = "result " + (d.win > 0 ? "win" : "lose");
+    }, 600);
 });
 
-// --- 3. ブラックジャック (app.jsのBJロジックに完全準拠) ---
+// 5. ブラックジャック（HTMLの id="bjDCards", id="bjPCards", id="bjPScore" に合わせました）
 function startBJ() {
     const bet = parseInt(document.getElementById('bjBet').value) || 100;
     socket.emit('bj_start', { bet: bet });
@@ -305,13 +298,14 @@ function startBJ() {
     document.getElementById('bjRes').textContent = "勝負中...";
 }
 
-function hitBJ() { socket.emit('bj_hit'); }
-function standBJ() { socket.emit('bj_stand'); }
+function standBJ() {
+    socket.emit('bj_stand');
+}
 
 socket.on('bj_update', d => {
     renderCards('bjPCards', d.player);
     renderCards('bjDCards', d.dealer);
-    document.getElementById('bjRes').textContent = `合計: ${d.pSum}`;
+    document.getElementById('bjPScore').textContent = d.pSum;
 });
 
 socket.on('bj_result', d => {
@@ -319,19 +313,14 @@ socket.on('bj_result', d => {
     renderCards('bjDCards', d.dealer);
     const res = document.getElementById('bjRes');
     res.textContent = d.msg;
-    
-    // ネオンカラー演出
-    if (d.msg.includes("WIN")) res.style.color = "#00f3ff";
-    else if (d.msg.includes("LOSE") || d.msg.includes("BUST")) res.style.color = "#ff003c";
-    else res.style.color = "#fcee0a";
+    res.className = "result " + (d.msg.includes("WIN") ? "win" : "lose");
 
-    updateChips(d.newChips); // BJの勝敗結果でチップ更新
-    
+    updateChips(d.newChips);
     document.getElementById('bjInit').style.display = 'flex';
     document.getElementById('bjActions').style.display = 'none';
 });
 
-// --- 4. ハイアンドロー (app.jsのHLロジックに完全準拠) ---
+// 6. ハイアンドロー（HTMLの id="hlCurrent", id="hlNext" に合わせました）
 function startHL() {
     socket.emit('hl_start');
 }
@@ -345,50 +334,50 @@ function collectHL() {
     socket.emit('hl_collect');
     document.getElementById('hlInit').style.display = 'flex';
     document.getElementById('hlActions').style.display = 'none';
-    document.getElementById('hlRes').textContent = "賞金を清算しました";
 }
 
 socket.on('hl_setup', d => {
-    renderCards('hlCurrent', [d.currentCard]);
+    renderCards('hlCurrent', [d.currentCard]); 
     document.getElementById('hlInit').style.display = 'none';
     document.getElementById('hlActions').style.display = 'flex';
-    document.getElementById('hlRes').textContent = "HIGHかLOWか？";
+    document.getElementById('hlRes').textContent = "HIGH or LOW?";
 });
 
 socket.on('hl_result', d => {
-    renderCards('hlCurrent', [d.oldCard]);
+    renderCards('hlCurrent', [d.oldCard]); 
     const res = document.getElementById('hlRes');
     res.textContent = d.msg;
-    res.style.color = d.msg === "WIN!" ? "#00f3ff" : "#ff003c";
-    updateChips(d.newChips); // HLの結果でチップ更新
-});
-
-socket.on('hl_finished', d => {
+    res.className = "result " + (d.msg.includes("WIN") ? "win" : "lose");
     updateChips(d.newChips);
 });
 
-// --- 5. カード描画関数 (デザイン復旧) ---
+// 7. ランキング（HTMLの id="rList" に合わせました）
+socket.on('update_ranking', list => {
+    const container = document.getElementById('rList');
+    if (!container) return;
+    container.innerHTML = list.map((u, i) => `
+        <div style="border-bottom: 1px solid rgba(0,255,255,0.1); padding: 5px 0;">
+            <span style="color:var(--accent2)">${i + 1}.</span> ${u.name} 
+            <span style="float:right; color:#fcee0a;">${u.chips}</span>
+        </div>
+    `).join('');
+});
+
+// 8. カード描画（HTMLの .card-ui デザインに合わせました）
 function renderCards(id, cards) {
     const el = document.getElementById(id);
     if (!el) return;
     el.innerHTML = cards.map(c => {
+        if (c.rank === '?') return `<div class="card-ui back">?</div>`;
         const isRed = c.suit === '♥' || c.suit === '♦';
-        return `
-            <div class="card" style="
-                display:inline-block; width:45px; height:65px; background:white; 
-                color:${isRed ? 'red' : 'black'}; border-radius:5px; margin:3px; 
-                text-align:center; line-height:65px; font-weight:bold; font-size:18px; 
-                vertical-align:top; box-shadow: 0 0 5px rgba(255,255,255,0.3);
-            ">
-                ${c.rank}${c.suit === '?' ? '' : c.suit}
-            </div>
-        `;
+        return `<div class="card-ui ${isRed ? 'red' : ''}">${c.rank}${c.suit}</div>`;
     }).join('');
 }
     
 </script>
 </body>
 </html>
+
 
 
 
