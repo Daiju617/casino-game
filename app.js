@@ -153,23 +153,47 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('bj_stand', async () => {
+socket.on('bj_stand', async (data) => {
         const g = bjGames[socket.id]; if (!g) return;
         const user = await User.findOne({ name: socket.userName });
+        
         let dSum = getBJValue(g.d);
-        while (dSum < 17) { g.d.push(g.deck.pop()); dSum = getBJValue(g.d); }
+        // ディーラーは17以上になるまで引き続ける
+        while (dSum < 17) { 
+            g.d.push(g.deck.pop()); 
+            dSum = getBJValue(g.d); 
+        }
+        
         const pSum = getBJValue(g.p);
-        let win = 0, msg = "";
-        if (dSum > 21 || pSum > dSum) { win = g.bet * 2; msg = "WIN!"; }
-        else if (pSum === dSum) { win = g.bet; msg = "PUSH"; }
-        else { msg = "LOSE"; }
+        let win = 0;
+        let msg = "";
+
+        if (dSum > 21 || pSum > dSum) {
+            win = Math.floor(g.bet * 2); // 勝利：2倍
+            msg = "WIN!";
+        } else if (pSum === dSum) {
+            win = g.bet; // 引き分け：返金
+            msg = "PUSH";
+        } else {
+            win = 0; // 敗北
+            msg = "LOSE";
+        }
+
+        // ここでチップを確実に更新
         user.chips = user.chips - g.bet + win;
         await user.save();
-        socket.emit('bj_result', { player: g.p, dealer: g.d, msg, newChips: user.chips });
+
+        socket.emit('bj_result', { 
+            player: g.p, 
+            dealer: g.d, 
+            msg: msg, 
+            newChips: user.chips 
+        });
+        
         delete bjGames[socket.id];
         updateRanking();
     });
-
+    
     // --- 新・ハイアンドロー ---
     socket.on('hl_start', () => {
         hlCurrentCard[socket.id] = createDeck().pop();
@@ -191,6 +215,15 @@ io.on('connection', (socket) => {
         updateRanking();
     });
 
+    // ハイアンドローの賞金を確定して終了する
+    socket.on('hl_collect', async () => {
+        const user = await User.findOne({ name: socket.userName });
+        // HLは1回ごとにチップを更新する現在の仕様なら、
+        // 画面上の表示をリセットするだけでOK
+        delete hlCurrentCard[socket.id];
+        socket.emit('hl_finished', { newChips: user.chips });
+    });
+
     // --- 管理者用コマンド (デバッグ用) ---
     socket.on('admin_command', async (d) => {
         if (d.pass !== "ADMIN_SECRET") return;
@@ -208,3 +241,4 @@ async function updateRanking() {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+
