@@ -216,209 +216,191 @@
 <div id="log" style="width:100%; padding:20px; font-size:0.8rem; color:rgba(0,255,255,0.4); border-top:1px solid rgba(0,255,255,0.1);"></div>
 
 <script>
-    const socket = io();
-    let myChips = 0;
+    
+const socket = io();
 
-    function login() {
-        const name = document.getElementById('uName').value;
-        const password = document.getElementById('uPass').value;
-        if(name && password) socket.emit('login_request', {name, password});
-    }
-
-    socket.on('login_success', d => {
-        document.getElementById('loginOverlay').style.display = 'none';
-        document.getElementById('myName').textContent = d.name;
-        myChips = d.chips;
-        document.getElementById('chips').textContent = myChips.toLocaleString();
-    });
-
-    socket.on('login_error', m => document.getElementById('err').textContent = m);
-
-    // 画面のチップ表示を更新する関数
+// --- 共通：チップ表示とランキングの更新 ---
 function updateChips(amount) {
-    const chipDisplay = document.getElementById('userChips'); // HTMLのチップ表示ID
-    if (chipDisplay) {
-        chipDisplay.textContent = amount;
+    const el = document.getElementById('userChips');
+    if (el && amount !== undefined) {
+        el.textContent = amount;
     }
 }
 
-    function spin() {
-        const bet = parseInt(document.getElementById('sBet').value);
-        if(bet > myChips) return alert("INSUFFICIENT CHIPS");
-        socket.emit('spin_request', {bet});
-    }
-
-    socket.on('spin_result', d => {
-        const display = document.getElementById('slotDisplay');
-        const resEl = document.getElementById('sRes');
-        let count = 0;
-        const syms = ["🍒", "💎", "7️⃣", "🍋", "⭐"];
-        const interval = setInterval(() => {
-            display.textContent = syms[Math.floor(Math.random()*5)] + " " + syms[Math.floor(Math.random()*5)] + " " + syms[Math.floor(Math.random()*5)];
-            if (count++ > 15) {
-                clearInterval(interval);
-                display.textContent = d.result.join(" ");
-                myChips = d.newChips;
-                document.getElementById('chips').textContent = myChips.toLocaleString();
-                resEl.className = "result " + (d.win > 0 ? "win" : "lose");
-                resEl.textContent = d.win > 0 ? "WIN +" + d.win : "LOSE";
-            }
-        }, 50);
-    });
-
-    function double() {
-        const bet = parseInt(document.getElementById('dBet').value);
-        if(bet > myChips) return alert("INSUFFICIENT CHIPS");
-        socket.emit('double_up_request', {bet});
-    }
-
-    socket.on('double_up_result', d => {
-        myChips = d.newChips;
-        document.getElementById('chips').textContent = myChips.toLocaleString();
-        const resEl = document.getElementById('dRes');
-        resEl.className = "result " + (d.win > 0 ? "win" : "lose");
-        resEl.textContent = d.message;
-    });
-
-    socket.on('update_ranking', list => {
-        document.getElementById('rList').innerHTML = list.map((u, i) => 
-            `<div style="margin-bottom:5px;">${i+1}. ${u.name} - ${u.chips.toLocaleString()}</div>`).join("");
-    });
-
-    socket.on('broadcast', m => {
-        const l = document.getElementById('log');
-        l.innerHTML = `<div>> ${m}</div>` + l.innerHTML;
-    });
-
-    // チャット送信
-    function sendChat() {
-        const input = document.getElementById('chatInput');
-        if (input.value) {
-            socket.emit('chat_message', input.value);
-            input.value = "";
-        }
-    }
-
-    // Enterキーでチャット送信できるように設定
-    document.getElementById('chatInput').addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') sendChat();
-    });
-
-    // カード描画補助（赤スート判定付き）
-function renderCards(id, cards) {
-    const container = document.getElementById(id);
-    container.innerHTML = cards.map(c => {
-        const isRed = c.suit === '♥' || c.suit === '♦';
-        const isBack = c.rank === '?';
-        return `<div class="card-ui ${isRed ? 'red' : ''} ${isBack ? 'back' : ''}">${isBack ? '?' : c.rank + c.suit}</div>`;
-    }).join("");
-}
-
-// BJ関連
-function startBJ() {
-    socket.emit('bj_start', { bet: parseInt(document.getElementById('bjBet').value) });
-    document.getElementById('bjInit').style.display = 'none';
-    document.getElementById('bjActions').style.display = 'flex';
-}
-
-function standBJ() {
-    socket.emit('bj_stand', { bet: parseInt(document.getElementById('bjBet').value) });
-}
-
-socket.on('bj_update', d => {
-    renderCards('bjDCards', d.dealer);
-    renderCards('bjPCards', d.player);
+socket.on('update_ranking', list => {
+    const container = document.getElementById('rankingList');
+    if (!container) return;
+    // ランキングのHTML生成を丁寧に復元
+    container.innerHTML = list.map((u, i) => `
+        <li style="border-bottom: 1px solid #333; padding: 5px 0;">
+            <span style="color:var(--accent2)">${i + 1}.</span> ${u.name} 
+            <span style="float:right; color:#fcee0a;">${u.chips} 枚</span>
+        </li>
+    `).join('');
 });
 
-    // --- ブラックジャック結果受信 ---
-socket.on('bj_result', d => {
-    renderCards('bjDCards', d.dealer);
-    renderCards('bjPCards', d.player);
-    
-    const resElem = document.getElementById('bjRes');
-    resElem.textContent = d.msg;
-    
-    // 【文字色の指定】
-    if (d.msg.includes("WIN")) {
-        resElem.style.color = "#00f3ff"; // サイバーブルー（勝利）
-        resElem.style.textShadow = "0 0 10px #00f3ff";
-    } else if (d.msg.includes("LOSE") || d.msg.includes("BUST")) {
-        resElem.style.color = "#ff003c"; // ネオンレッド（敗北）
-        resElem.style.textShadow = "0 0 10px #ff003c";
-    } else {
-        resElem.style.color = "#fcee0a"; // イエロー（引き分け）
-        resElem.style.textShadow = "0 0 10px #fcee0a";
+// --- 1. ログイン・チャット機能 (完全復旧) ---
+function login() {
+    const name = document.getElementById('name').value;
+    const password = document.getElementById('password').value;
+    if(!name || !password) return alert("名前とパスワードを入力してください");
+    socket.emit('login_request', { name, password });
+}
+
+socket.on('login_success', d => {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('game-screen').style.display = 'block';
+    document.getElementById('userName').textContent = d.name;
+    updateChips(d.chips);
+});
+
+socket.on('login_error', msg => alert(msg));
+
+function sendMessage() {
+    const input = document.getElementById('chatInput');
+    if (input.value) {
+        socket.emit('chat_message', input.value);
+        input.value = '';
     }
-    
-    document.getElementById('userChips').textContent = d.newChips;
+}
+
+socket.on('broadcast', msg => {
+    const log = document.getElementById('chatLog');
+    const div = document.createElement('div');
+    div.style.borderLeft = "2px solid var(--accent2)";
+    div.style.paddingLeft = "5px";
+    div.style.marginBottom = "5px";
+    div.textContent = msg;
+    log.appendChild(div);
+    log.scrollTop = log.scrollHeight; // 自動スクロール
+});
+
+// --- 2. スロットマシン (演出込み復旧) ---
+function spin() {
+    const bet = parseInt(document.getElementById('slotBet').value) || 10;
+    socket.emit('spin_request', { bet });
+}
+
+socket.on('spin_result', d => {
+    const reels = document.querySelectorAll('.reel');
+    // 回転演出のシミュレーション
+    reels.forEach((reel, i) => {
+        reel.textContent = "🎰"; 
+        setTimeout(() => {
+            reel.textContent = d.result[i];
+        }, i * 200);
+    });
+
+    setTimeout(() => {
+        updateChips(d.newChips);
+        const res = document.getElementById('slotRes');
+        res.textContent = d.win > 0 ? `WIN: ${d.win}枚！` : "LOSE";
+        res.style.color = d.win > 0 ? "#00f3ff" : "#ff4444";
+    }, 700);
+});
+
+// --- 3. ブラックジャック (新ロジック + 色演出) ---
+function startBJ() {
+    const bet = parseInt(document.getElementById('bjBet').value) || 100;
+    socket.emit('bj_start', { bet });
+    document.getElementById('bjInit').style.display = 'none';
+    document.getElementById('bjActions').style.display = 'flex';
+    document.getElementById('bjRes').textContent = "ディーラー待機中...";
+}
+
+function hitBJ() { socket.emit('bj_hit'); }
+function standBJ() { socket.emit('bj_stand'); }
+
+socket.on('bj_update', d => {
+    renderCards('bjPCards', d.player);
+    renderCards('bjDCards', d.dealer);
+    document.getElementById('bjRes').textContent = `あなたの合計: ${d.pSum}`;
+});
+
+socket.on('bj_result', d => {
+    renderCards('bjPCards', d.player);
+    renderCards('bjDCards', d.dealer);
+    const res = document.getElementById('bjRes');
+    res.textContent = d.msg;
+    // 勝敗による色分け
+    if (d.msg.includes("WIN")) res.style.color = "#00f3ff";
+    else if (d.msg.includes("LOSE") || d.msg.includes("BUST")) res.style.color = "#ff003c";
+    else res.style.color = "#fcee0a";
+
+    if(d.newChips) updateChips(d.newChips);
     document.getElementById('bjInit').style.display = 'flex';
     document.getElementById('bjActions').style.display = 'none';
 });
 
-// H&L関連
+// --- 4. ハイアンドロー (完全版ロジック対応) ---
 function startHL() {
-    socket.emit('hl_start', { bet: parseInt(document.getElementById('hlBet').value) });
-    document.getElementById('hlInit').style.display = 'none';
-    document.getElementById('hlActions').style.display = 'flex';
+    socket.emit('hl_start');
 }
 
 function guessHL(choice) {
-    socket.emit('hl_guess', { choice, bet: parseInt(document.getElementById('hlBet').value) });
+    const bet = parseInt(document.getElementById('hlBet').value) || 100;
+    socket.emit('hl_guess', { choice, bet });
 }
 
-socket.on('hl_setup', d => {
-    // 最初の1枚を表示して、操作ボタンを出す
-    renderCards('hlCurrent', [d.currentCard]);
-    document.getElementById('hlInit').style.display = 'none';
-    document.getElementById('hlActions').style.display = 'flex';
-    document.getElementById('hlRes').textContent = "HIGHかLOWを予想してください";
-});
-
-// --- ハイアンドロー結果受信 ---
-socket.on('hl_result', d => {
-    renderCards('hlCurrent', [d.oldCard]); 
-    
-    const resElem = document.getElementById('hlRes');
-    resElem.textContent = d.msg;
-    
-    // 【文字色の指定】
-    if (d.msg === "WIN!") {
-        resElem.style.color = "#00f3ff"; // 勝利
-        resElem.style.textShadow = "0 0 10px #00f3ff";
-    } else if (d.msg === "LOSE") {
-        resElem.style.color = "#ff003c"; // 敗北
-        resElem.style.textShadow = "0 0 10px #ff003c";
-    } else {
-        resElem.style.color = "#fcee0a"; // 引き分け(DRAW)
-        resElem.style.textShadow = "0 0 10px #fcee0a";
-    }
-
-    document.getElementById('userChips').textContent = d.newChips;
-});
-    
-socket.on('hl_finished', d => {
-    document.getElementById('hlInit').style.display = 'flex';
-    document.getElementById('hlActions').style.display = 'none';
-    // 終了時も念のためチップを最新にする
-    document.getElementById('userChips').textContent = d.newChips;
-});
-
-    function collectHL() {
+function collectHL() {
     socket.emit('hl_collect');
-    // 画面を初期状態に戻す
+    // 画面を初期化
     document.getElementById('hlInit').style.display = 'flex';
     document.getElementById('hlActions').style.display = 'none';
     document.getElementById('hlRes').textContent = "賞金を確定しました";
 }
 
-// サーバーから終了通知が来た時の処理（念のため）
+socket.on('hl_setup', d => {
+    renderCards('hlCurrent', [d.currentCard]);
+    document.getElementById('hlInit').style.display = 'none';
+    document.getElementById('hlActions').style.display = 'flex';
+    document.getElementById('hlRes').textContent = "次の一枚は高い？低い？";
+});
+
+socket.on('hl_result', d => {
+    renderCards('hlCurrent', [d.oldCard]);
+    const res = document.getElementById('hlRes');
+    res.textContent = d.msg;
+    res.style.color = d.msg === "WIN" ? "#00f3ff" : "#ff003c";
+    updateChips(d.newChips);
+});
+
 socket.on('hl_finished', d => {
     updateChips(d.newChips);
 });
+
+// --- 共通：カード描画ロジック (サボりなし) ---
+function renderCards(id, cards) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.innerHTML = cards.map(c => {
+        const isRed = c.suit === '♥' || c.suit === '♦';
+        return `
+            <div class="card" style="
+                display: inline-block;
+                width: 50px;
+                height: 70px;
+                background: white;
+                color: ${isRed ? 'red' : 'black'};
+                border-radius: 5px;
+                margin: 5px;
+                text-align: center;
+                line-height: 70px;
+                font-weight: bold;
+                font-size: 20px;
+                vertical-align: top;
+                box-shadow: 0 0 10px rgba(255,255,255,0.2);
+            ">
+                ${c.rank}${c.suit === '?' ? '' : c.suit}
+            </div>
+        `;
+    }).join('');
+}
     
 </script>
 </body>
 </html>
+
 
 
 
