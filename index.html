@@ -4,181 +4,196 @@
     <meta charset="UTF-8">
     <title>YAWATA CASINO</title>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-    <style>
-        /* ご提示いただいたデザインを適用 */
-        :root{
-            --bg:#050510;
-            --accent:#0ff;
-            --accent2:#ff00ff;
-            --panel:#0b0b1a;
-            --text:#e0ffff;
-        }
-        *{ box-sizing:border-box; }
-        body{
-            margin:0;
-            min-height:100vh;
-            background: radial-gradient(circle at top, #202040 0, #050510 55%, #000 100%);
-            font-family: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-            color:var(--text);
-            text-align:center;
-            display:flex; flex-direction:column; align-items:center;
-        }
-        header{ padding:25px 10px 10px; }
-        h1{
-            margin:0; font-size:2.6rem; letter-spacing:0.15em;
-            text-shadow: 0 0 10px var(--accent), 0 0 25px var(--accent2), 0 0 40px #fff;
-        }
-        h1 span{ display:inline-block; transform:skewX(-8deg); }
-        #chipBar{
-            margin-top:10px; display:inline-flex; align-items:center; gap:10px; padding:6px 14px;
-            border-radius:999px; background:linear-gradient(90deg,rgba(0,255,255,0.15),rgba(255,0,255,0.15));
-            border:1px solid rgba(0,255,255,0.5); box-shadow:0 0 15px rgba(0,255,255,0.4); font-weight:bold;
-        }
-        #chips{ font-size:1.4rem; color:#fff; text-shadow:0 0 8px var(--accent); }
-       main {
-    width: 100%;
-    max-width: 1200px; /* 少し広げます */
-    display: flex;     /* GridからFlexに変更して横並びを制御 */
-    flex-wrap: wrap;   /* 画面が狭いときは折り返す */
-    justify-content: center;
-    gap: 20px;
-    padding: 20px;
-}
+   <style>
+    :root {
+        --bg: #050510;
+        --accent: #0ff;
+        --accent2: #ff00ff;
+        --panel: #0b0b1a;
+        --text: #e0ffff;
+    }
 
-.section {
-    flex: 1;           /* 幅を均等に */
-    min-width: 300px;  /* 狭くなりすぎないように */
-    max-width: 350px;  /* 広くなりすぎないように */
-    display: flex;
-    flex-direction: column;
-}
+    * { box-sizing: border-box; }
 
-/* チャットセクションだけは横いっぱいに使う */
-.chat-section {
-    flex: 1 1 100%;    /* 一番下に横長に配置 */
-    max-width: 1000px;
-}
+    body {
+        margin: 0;
+        min-height: 100vh;
+        background: radial-gradient(circle at top, #202040 0, #050510 55%, #000 100%);
+        font-family: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+        color: var(--text);
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
 
-#chat-log {
-    height: 300px;     /* 高さを固定 */
-    background: #7494c0;
-    border-radius: 8px;
-    margin-bottom: 10px;
-}
-        .control-row{ display:flex; justify-content:center; gap:8px; margin-bottom:10px; }
-        input[type="number"], input[type="text"], input[type="password"] {
-            padding:6px 12px; border-radius:999px; border:1px solid rgba(0,255,255,0.6);
-            background:rgba(0,0,0,0.6); color:var(--text);
-        }
-        button{
-            background:linear-gradient(135deg,#111,#222); color:var(--accent);
-            border-radius:999px; border:1px solid rgba(0,255,255,0.7); padding:7px 18px;
-            cursor:pointer; font-weight:600; transition: 0.1s;
-        }
-        button:hover{ background:var(--accent); color:#000; box-shadow:0 0 12px var(--accent); }
-        .slot-frame{
-            font-size:2.4rem; margin:10px 0; padding:6px 16px; border-radius:14px;
-            border:1px solid rgba(0,255,255,0.6); background:rgba(0,0,0,0.5);
-        }
-        .result{ margin-top:8px; min-height:22px; font-weight:bold; }
-        .win{ color:#00ff9d; text-shadow:0 0 8px #00ff9d; }
-        .lose{ color:#ff4d6a; text-shadow:0 0 8px #ff4d6a; }
-        #loginOverlay {
-            position: fixed; inset: 0; background: var(--bg);
-            display: flex; justify-content: center; align-items: center; z-index: 1000;
-        }
-        /* 追加・修正用CSS */
-.card-row {
-    display: flex;
-    justify-content: center;
-    gap: 10px;
-    min-height: 100px;
-    padding: 10px;
-}
+    header { padding: 25px 10px 10px; }
 
-/* お客様定義の「card」を継承したトランプデザイン */
-.card-ui {
-    display: inline-flex;
-    justify-content: center;
-    align-items: center;
-    width: 52px;
-    height: 72px;
-    border-radius: 10px;
-    background: #fdfdfd; /* 白ベース */
-    color: #000;
-    font-weight: bold;
-    font-size: 1.2rem;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.5), 0 0 5px var(--accent);
-    position: relative;
-    border: 1px solid #ddd;
-}
+    h1 {
+        margin: 0;
+        font-size: 2.6rem;
+        letter-spacing: 0.15em;
+        text-shadow: 0 0 10px var(--accent), 0 0 25px var(--accent2), 0 0 40px #fff;
+    }
 
-/* ハートやダイヤなど赤いスート用 */
-.card-ui.red { color: #c00; }
+    h1 span { display: inline-block; transform: skewX(-8deg); }
 
-/* 裏向きのカード */
-.card-ui.back {
-    background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
-    border: 2px solid #fff;
-}
+    #chipBar {
+        margin-top: 10px;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 6px 14px;
+        border-radius: 999px;
+        background: linear-gradient(90deg, rgba(0, 255, 255, 0.15), rgba(255, 0, 255, 0.15));
+        border: 1px solid rgba(0, 255, 255, 0.5);
+        box-shadow: 0 0 15px rgba(0, 255, 255, 0.4);
+        font-weight: bold;
+    }
 
-#chatBox {
-    height: 150px;
-    overflow-y: auto;
-    background: rgba(0,0,0,0.4);
-    border: 1px solid rgba(0,255,255,0.2);
-    border-radius: 8px;
-    padding: 10px;
-    text-align: left;
-    font-size: 0.85rem;
-    margin-top: 10px;
-}
+    #chips { font-size: 1.4rem; color: #fff; text-shadow: 0 0 8px var(--accent); }
 
-/* チャットエリア全体の形を整える */
-#chat-log {
-    display: flex;
-    flex-direction: column;
-    padding: 10px;
-    background: #7494c0; /* LINEっぽい背景色 */
-    overflow-y: auto;
-    height: 400px;
-}
+    /* メインレイアウトの修正 */
+    main {
+        width: 100%;
+        max-width: 1200px;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 20px;
+        padding: 20px;
+    }
 
-/* 共通の吹き出しスタイル */
-.msg-box {
-    max-width: 70%;
-    margin: 5px;
-    padding: 10px;
-    border-radius: 15px;
-    word-wrap: break-word;
-    position: relative;
-    font-size: 14px;
-}
+    /* 各セクションの枠線を復活 */
+    .section {
+        background: radial-gradient(circle at top left, #1a1a3a, #050510 60%);
+        border-radius: 18px;
+        padding: 20px;
+        border: 1px solid rgba(0, 255, 255, 0.4);
+        box-shadow: 0 0 25px rgba(0, 255, 255, 0.25), 0 0 40px rgba(255, 0, 255, 0.15);
+        display: flex;
+        flex-direction: column;
+        min-width: 320px;
+        flex: 1;
+    }
 
-/* 相手の発言（左側・白） */
-.msg-other {
-    align-self: flex-start;
-    background: white;
-    color: black;
-    border-bottom-left-radius: 2px;
-}
+    /* チャットセクションを横長に独立 */
+    .chat-section {
+        flex: 1 1 100%;
+        max-width: 1060px;
+    }
 
-/* 自分の発言（右側・緑） */
-.msg-me {
-    align-self: flex-end;
-    background: #85e085;
-    color: black;
-    border-bottom-right-radius: 2px;
-}
+    .control-row { display: flex; justify-content: center; gap: 8px; margin-bottom: 10px; }
 
-/* 名前や時間の表示 */
-.msg-info {
-    font-size: 10px;
-    color: #eee;
-    margin-bottom: 2px;
-}
-        
-    </style>
+    input[type="number"], input[type="text"], input[type="password"] {
+        padding: 6px 12px;
+        border-radius: 999px;
+        border: 1px solid rgba(0, 255, 255, 0.6);
+        background: rgba(0, 0, 0, 0.6);
+        color: var(--text);
+    }
+
+    button {
+        background: linear-gradient(135deg, #111, #222);
+        color: var(--accent);
+        border-radius: 999px;
+        border: 1px solid rgba(0, 255, 255, 0.7);
+        padding: 7px 18px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: 0.1s;
+    }
+
+    button:hover {
+        background: var(--accent);
+        color: #000;
+        box-shadow: 0 0 12px var(--accent);
+    }
+
+    button:disabled {
+        opacity: 0.3;
+        cursor: not-allowed;
+    }
+
+    .slot-frame {
+        font-size: 2.4rem;
+        margin: 10px 0;
+        padding: 10px;
+        border-radius: 14px;
+        border: 1px solid rgba(0, 255, 255, 0.6);
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        justify-content: center;
+        gap: 15px;
+    }
+
+    .result { margin-top: 8px; min-height: 22px; font-weight: bold; }
+    .win { color: #00ff9d; text-shadow: 0 0 8px #00ff9d; }
+    .lose { color: #ff4d6a; text-shadow: 0 0 8px #ff4d6a; }
+
+    #loginOverlay {
+        position: fixed; inset: 0; background: var(--bg);
+        display: flex; justify-content: center; align-items: center; z-index: 1000;
+    }
+
+    /* トランプデザイン */
+    .card-row { display: flex; justify-content: center; gap: 10px; min-height: 100px; padding: 10px; }
+    .card-ui {
+        display: inline-flex; justify-content: center; align-items: center;
+        width: 52px; height: 72px; border-radius: 10px;
+        background: #fdfdfd; color: #000; font-weight: bold; font-size: 1.2rem;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.5), 0 0 5px var(--accent);
+        border: 1px solid #ddd;
+    }
+    .card-ui.red { color: #c00; }
+    .card-ui.back {
+        background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+        border: 2px solid #fff;
+    }
+
+    /* LINE風チャットのデザイン */
+    #chat-log {
+        display: flex;
+        flex-direction: column;
+        padding: 15px;
+        background: #7494c0;
+        border-radius: 12px;
+        overflow-y: auto;
+        height: 350px;
+        text-align: left;
+        border: 2px solid rgba(0,0,0,0.2);
+    }
+
+    .msg-box {
+        max-width: 70%;
+        margin: 5px 0;
+        padding: 10px 14px;
+        border-radius: 18px;
+        word-wrap: break-word;
+        font-size: 14px;
+        line-height: 1.4;
+    }
+
+    .msg-other {
+        align-self: flex-start;
+        background: white;
+        color: black;
+        border-bottom-left-radius: 4px;
+    }
+
+    .msg-me {
+        align-self: flex-end;
+        background: #85e085;
+        color: black;
+        border-bottom-right-radius: 4px;
+    }
+
+    .msg-info {
+        font-size: 11px;
+        color: #fff;
+        margin: 8px 5px 2px;
+    }
+</style>
 </head>
 <body>
 
@@ -203,88 +218,73 @@
 </header>
 
 <main>
-    
-<div class="section">
-    <div class="section-title"><span class="label">Cyber Slot</span></div>
-    
-    <div id="gogoLamp" style="color: #333; font-weight: bold; text-shadow: none; transition: 0.3s;">GOGO!</div>
-
-    <div class="slot-frame" style="display: flex; justify-content: center; gap: 10px;">
-        <div id="reel0" class="reel">❓</div>
-        <div id="reel1" class="reel">❓</div>
-        <div id="reel2" class="reel">❓</div>
-    </div>
-
-    <div class="control-row">
-        <button id="btn0" onclick="stopReel(0)" disabled>STOP 1</button>
-        <button id="btn1" onclick="stopReel(1)" disabled>STOP 2</button>
-        <button id="btn2" onclick="stopReel(2)" disabled>STOP 3</button>
-    </div>
-
-    <div class="control-row">
-        <input type="number" id="sBet" value="100" min="10">
-        <button id="spinBtn" onclick="spin()">SPIN</button>
-    </div>
-    <div id="sRes" class="result"></div>
-</div>
-
-<div class="section">
-    <div class="section-title"><span class="label">Blackjack</span></div>
-    <div id="bjTable" style="margin-bottom:15px; background:rgba(0,0,0,0.3); border-radius:10px; padding:10px;">
-        <div style="font-size:0.8rem; color:var(--accent); margin-bottom:5px;">DEALER</div>
-        <div id="bjDCards" class="card-row"></div>
-        
-        <div style="margin:15px 0; border-top:1px dashed rgba(0,255,255,0.2);"></div>
-        
-        <div id="bjPCards" class="card-row"></div>
-        <div style="font-size:0.8rem; color:var(--accent2); margin-top:5px;">YOU: <span id="bjPScore">0</span></div>
-    </div>
-    
-    <div class="control-row" id="bjInit">
-        <input type="number" id="bjBet" value="100">
-        <button onclick="startBJ()">DEAL</button>
-    </div>
-    
-    <div class="control-row" id="bjActions" style="display:none;">
-        <button onclick="socket.emit('bj_hit')" style="border-color:var(--accent2); color:var(--accent2);">HIT</button>
-        <button onclick="standBJ()">STAND</button>
-    </div>
-    <div id="bjRes" class="result"></div>
-</div>
-
-<div class="section">
-    <div class="section-title"><span class="label">High & Low</span></div>
-    <div class="card-row" style="align-items: center; gap: 20px;">
-        <div>
-            <div style="font-size:0.7rem; opacity:0.6; margin-bottom:5px;">CURRENT</div>
-            <div id="hlCurrent" class="card-ui back">?</div>
+    <div class="section">
+        <div class="section-title"><span class="label">Cyber Slot</span></div>
+        <div id="gogoLamp" style="color: #222; font-weight: bold; font-size: 1.5rem;">GOGO!</div>
+        <div class="slot-frame" style="display: flex; justify-content: center; gap: 10px;">
+            <div id="reel0">❓</div>
+            <div id="reel1">❓</div>
+            <div id="reel2">❓</div>
         </div>
-        <div style="font-size:1.5rem; color:var(--accent); text-shadow:0 0 10px var(--accent);">➡</div>
-        <div>
-            <div style="font-size:0.7rem; opacity:0.6; margin-bottom:5px;">NEXT</div>
+        <div class="control-row">
+            <button id="stop0" onclick="stopReel(0)" disabled>STOP 1</button>
+            <button id="stop1" onclick="stopReel(1)" disabled>STOP 2</button>
+            <button id="stop2" onclick="stopReel(2)" disabled>STOP 3</button>
+        </div>
+        <div class="control-row">
+            <input type="number" id="sBet" value="100" min="10">
+            <button id="spinBtn" onclick="spin()">SPIN</button>
+        </div>
+        <div id="sRes" class="result"></div>
+    </div>
+
+    <div class="section">
+        <div class="section-title"><span class="label">Blackjack</span></div>
+        <div id="bjDCards" class="card-row"></div>
+        <div id="bjPCards" class="card-row"></div>
+        <div id="bjPScore" class="result">0</div>
+        <div class="control-row" id="bjInit">
+            <input type="number" id="bjBet" value="100">
+            <button onclick="startBJ()">DEAL</button>
+        </div>
+        <div class="control-row" id="bjActions" style="display:none;">
+            <button onclick="socket.emit('bj_hit')">HIT</button>
+            <button onclick="standBJ()">STAND</button>
+        </div>
+        <div id="bjRes" class="result"></div>
+    </div>
+
+    <div class="section">
+        <div class="section-title"><span class="label">High & Low</span></div>
+        <div class="card-row">
+            <div id="hlCurrent" class="card-ui">?</div>
             <div id="hlNext" class="card-ui back">?</div>
         </div>
+        <div class="control-row" id="hlInit">
+            <input type="number" id="hlBet" value="100">
+            <button onclick="startHL()">DEAL</button>
+        </div>
+        <div class="control-row" id="hlActions" style="display:none;">
+            <button onclick="guessHL('high')">HIGH</button>
+            <button onclick="guessHL('low')">LOW</button>
+            <button onclick="collectHL()">COLLECT</button>
+        </div>
+        <div id="hlRes" class="result"></div>
     </div>
-    
-    <div class="control-row" id="hlInit" style="margin-top:15px;">
-        <input type="number" id="hlBet" value="100">
-        <button onclick="startHL()">DEAL</button>
-    </div>
-    
-<div class="control-row">
-    <button id="stop0" onclick="stopReel(0)" disabled>STOP 1</button>
-    <button id="stop1" onclick="stopReel(1)" disabled>STOP 2</button>
-    <button id="stop2" onclick="stopReel(2)" disabled>STOP 3</button>
-</div>
 
-<div class="section" style="grid-column: 1 / -1;">
-    <div class="section-title"><span class="label">Global Chat</span></div>
-    <div id="chat-log"></div> <div class="control-row">
-        <input type="text" id="chatInput" placeholder="MESSAGE..." style="width:70%;">
-        <button onclick="sendChat()">SEND</button>
+    <div class="section">
+        <div class="section-title"><span class="label">Ranking</span></div>
+        <div id="rList"></div>
     </div>
-</div>
 
+    <div class="section chat-section">
+        <div class="section-title"><span class="label">Global Chat</span></div>
+        <div id="chat-log" style="height: 300px; background: #7494c0; border-radius: 8px; overflow-y: auto; margin: 10px 0;"></div>
+        <div class="control-row">
+            <input type="text" id="chatInput" placeholder="MESSAGE..." style="width:75%;">
+            <button onclick="sendChat()">SEND</button>
+        </div>
+    </div>
 </main>
 
 <div id="log" style="width:100%; padding:20px; font-size:0.8rem; color:rgba(0,255,255,0.4); border-top:1px solid rgba(0,255,255,0.1);"></div>
@@ -537,6 +537,7 @@ socket.on('chat_history', (msgs) => {
 </script>
 </body>
 </html>
+
 
 
 
