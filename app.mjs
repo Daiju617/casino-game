@@ -145,23 +145,24 @@ socket.on('spin_request', async (data) => {
     } catch (err) { console.error(err); }
 });
 
-// --- [チャット] LINE風にするためのデータ構造 ---
-socket.on('chat_message', async (msg) => {
+socket.on('chat_message', async (data) => {
     if (!socket.data.userName) return;
-    
-    const newChat = new Chat({ 
-        userName: socket.data.userName, 
-        message: msg,
-        time: new Date()
-    });
-    await newChat.save();
 
-    // 全員に「誰が送ったか」を明確にして送信
-    io.emit('broadcast', {
-        userName: socket.data.userName,
-        message: msg,
-        time: newChat.time
-    });
+    // 受信したデータが「文字列(msg)」か「オブジェクト({message: msg})」か判定する
+    const messageText = (typeof data === 'string') ? data : (data.message || data.msg);
+
+    try {
+        const newChat = new Chat({ 
+            userName: socket.data.userName, 
+            message: messageText // ✅ 確実にこの名前で保存
+        });
+        await newChat.save();
+
+        io.emit('broadcast', {
+            userName: socket.data.userName,
+            message: messageText
+        });
+    } catch (err) { console.error("DB保存エラー:", err); }
 });
 
     // ブラックジャック
@@ -250,4 +251,5 @@ async function updateRanking() {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, "0.0.0.0", () => console.log(`🚀 Server running on port ${PORT}`));
+
 
