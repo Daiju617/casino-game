@@ -289,6 +289,21 @@
         <div id="rList"></div>
     </div>
 
+    <div id="menu-screen" class="section">
+    <h2>🎰 闇カジノ・メニュー</h2>
+    <button onclick="showGame('casino')">カジノエリア（スロット/BJ）</button>
+    <button onclick="showGame('clicker')" style="background: #fff; color: #000;">クリッカー（出稼ぎエリア）</button>
+</div>
+
+<div id="clicker-area" style="display: none; text-align: center; padding: 50px;">
+    <h1 style="color: #555;">💰 出稼ぎクリッカー</h1>
+    <div id="click-score" style="font-size: 3rem; margin: 20px;">0</div>
+    <button id="main-button" onclick="hitClicker()" style="width: 200px; height: 200px; border-radius: 50%; font-size: 2rem; cursor: pointer;">PUSH!</button>
+    <br><br>
+    <button onclick="exchangeScore()" style="background: #4caf50;">チップへ換金(100:1)</button>
+    <button onclick="showGame('menu')" style="background: #777;">メニューへ戻る</button>
+</div>
+
     <div class="section chat-section">
         <div class="section-title"><span class="label">Global Chat</span></div>
         <div id="chat-log" style="height: 300px; background: #7494c0; border-radius: 8px; overflow-y: auto; margin: 10px 0;"></div>
@@ -337,6 +352,55 @@ socket.on('login_success', d => {
 
 socket.on('login_error', msg => {
     document.getElementById('err').textContent = msg;
+});
+
+    let score = 0;
+
+function showGame(mode) {
+    const clicker = document.getElementById('clicker-area');
+    const menu = document.getElementById('menu-screen');
+    const casino = document.getElementById('casino-area'); // カジノ部分を囲っておく
+
+    if (mode === 'clicker') {
+        // ✨ きらきら演出
+        createSparkles();
+        document.body.classList.add('clicker-mode');
+        clicker.style.display = 'block';
+        menu.style.display = 'none';
+    } else {
+        document.body.classList.remove('clicker-mode');
+        clicker.style.display = 'none';
+        menu.style.display = 'block';
+    }
+}
+
+function hitClicker() {
+    score++;
+    document.getElementById('click-score').textContent = score;
+    // クリック時も少しきらきらさせる
+    createSparkles();
+}
+
+function createSparkles() {
+    for(let i=0; i<15; i++) {
+        const s = document.createElement('div');
+        s.className = 'sparkle';
+        s.style.left = Math.random() * window.innerWidth + 'px';
+        s.style.top = Math.random() * window.innerHeight + 'px';
+        document.body.appendChild(s);
+        setTimeout(() => s.remove(), 600);
+    }
+}
+
+function exchangeScore() {
+    if (score < 100) return alert("100スコア以上必要です");
+    socket.emit('exchange_request', { score });
+    score = 0;
+    document.getElementById('click-score').textContent = score;
+}
+
+socket.on('exchange_success', (d) => {
+    alert(`換金成功！ ${d.addedChips} チップ獲得！`);
 });
 
 // 3. チャット（HTMLの id="chatInput", id="log" に合わせました）
@@ -559,5 +623,6 @@ socket.on('chat_history', (msgs) => {
 </script>
 </body>
 </html>
+
 
 
