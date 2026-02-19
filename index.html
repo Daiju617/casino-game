@@ -27,6 +27,57 @@
         align-items: center;
     }
 
+       /* --- 1. ベースの設定（遷移を滑らかにする） --- */
+body {
+    background-color: #000;
+    color: #fff;
+    transition: background-color 1.2s ease, color 1.2s ease; /* 1.2秒かけて変化 */
+}
+
+/* --- 2. 白基調（クリッカーモード）の設定 --- */
+/* bodyにこのクラスがつくと、配下の色がすべて強制上書きされます */
+body.clicker-mode {
+    background-color: #ffffff !important;
+    color: #222 !important;
+}
+
+/* クリッカーモード中、セクション枠やボタンも明るくする */
+body.clicker-mode .section {
+    background: #f9f9f9 !important;
+    color: #333 !important;
+    border: 1px solid #ddd !important;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1) !important;
+}
+
+body.clicker-mode button {
+    background: #eee !important;
+    color: #333 !important;
+    border: 1px solid #ccc !important;
+}
+
+/* クリッカー専用の巨大ボタンのデザイン */
+#main-button {
+    background: #fff;
+    border: 5px solid #eee;
+    box-shadow: 0 10px 0 #ddd;
+    transition: 0.1s;
+}
+#main-button:active {
+    transform: translateY(5px);
+    box-shadow: 0 5px 0 #ddd;
+}
+
+/* --- 3. 画面がパッと光るエフェクト（JSで発動） --- */
+.white-flash {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: white;
+    z-index: 9999;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.4s;
+}
+
     header { padding: 25px 10px 10px; }
 
     h1 {
@@ -217,6 +268,8 @@
     <div style="margin-top:10px; font-size:0.9rem;">PLAYER: <span id="myName">-</span></div>
 </header>
 
+    <div id="casino-area" style="display:none;">
+
 <main>
     <div class="section">
         <div class="section-title"><span class="label">Cyber Slot</span></div>
@@ -289,6 +342,10 @@
         <div id="rList"></div>
     </div>
 
+    </div>
+
+    <div id="clicker-area" style="display:none;">
+
     <div id="menu-screen" class="section">
     <h2>🎰 闇カジノ・メニュー</h2>
     <button onclick="showGame('casino')">カジノエリア（スロット/BJ）</button>
@@ -303,6 +360,8 @@
     <button onclick="exchangeScore()" style="background: #4caf50;">チップへ換金(100:1)</button>
     <button onclick="showGame('menu')" style="background: #777;">メニューへ戻る</button>
 </div>
+
+        </div>
 
     <div class="section chat-section">
         <div class="section-title"><span class="label">Global Chat</span></div>
@@ -357,23 +416,35 @@ socket.on('login_error', msg => {
     let score = 0;
 
 function showGame(mode) {
-    const clicker = document.getElementById('clicker-area');
-    const menu = document.getElementById('menu-screen');
-    const casino = document.getElementById('casino-area'); // カジノ部分を囲っておく
+    // 演出用のフラッシュ要素を一時的に作成
+    const flash = document.createElement('div');
+    flash.className = 'sparkle-flash';
+    document.body.appendChild(flash);
+    
+    // 0.5秒かけて真っ白に光らせるアニメーション
+    flash.style.animation = "flash-anim 0.8s ease-out";
 
-    if (mode === 'clicker') {
-        // ✨ きらきら演出
-        createSparkles();
-        document.body.classList.add('clicker-mode');
-        clicker.style.display = 'block';
-        menu.style.display = 'none';
-    } else {
-        document.body.classList.remove('clicker-mode');
-        clicker.style.display = 'none';
-        menu.style.display = 'block';
-    }
+    setTimeout(() => {
+        const clickerArea = document.getElementById('clicker-area');
+        const menuScreen = document.getElementById('menu-screen');
+        const casinoArea = document.getElementById('casino-area'); // カジノ全体を囲むIDが必要
+
+        if (mode === 'clicker') {
+            document.body.classList.add('clicker-mode');
+            if(clickerArea) clickerArea.style.display = 'block';
+            if(menuScreen) menuScreen.style.display = 'none';
+            if(casinoArea) casinoArea.style.display = 'none';
+        } else {
+            document.body.classList.remove('clicker-mode');
+            if(clickerArea) clickerArea.style.display = 'none';
+            if(menuScreen) menuScreen.style.display = 'block';
+            if(casinoArea) casinoArea.style.display = 'none';
+        }
+    }, 400); // 光が最大になったタイミングで画面を切り替える
+
+    setTimeout(() => flash.remove(), 800); // 終わったら消す
 }
-
+    
 function hitClicker() {
     score++;
     document.getElementById('click-score').textContent = score;
@@ -623,6 +694,7 @@ socket.on('chat_history', (msgs) => {
 </script>
 </body>
 </html>
+
 
 
 
