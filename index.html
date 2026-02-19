@@ -112,6 +112,13 @@
     font-size: 0.85rem;
     margin-top: 10px;
 }
+
+        .chat-message { display: flex; flex-direction: column; }
+/* 相手の発言（左寄せ） */
+.message-other { align-self: flex-start; background: #e0e0e0; border-radius: 10px; padding: 8px; margin: 5px; }
+/* 自分の発言（右寄せ・緑色） */
+.message-me { align-self: flex-end; background: #85e085; border-radius: 10px; padding: 8px; margin: 5px; }
+        
     </style>
 </head>
 <body>
@@ -137,15 +144,30 @@
 </header>
 
 <main>
-    <div class="section">
-        <div class="section-title"><span class="label">Cyber Slot</span></div>
-        <div class="slot-frame" id="slotDisplay">🍒 💎 7️⃣</div>
-        <div class="control-row">
-            <input type="number" id="sBet" value="100" min="10">
-            <button onclick="spin()">SPIN</button>
-        </div>
-        <div id="sRes" class="result"></div>
+    
+<div class="section">
+    <div class="section-title"><span class="label">Cyber Slot</span></div>
+    
+    <div id="gogoLamp" style="color: #333; font-weight: bold; text-shadow: none; transition: 0.3s;">GOGO!</div>
+
+    <div class="slot-frame" style="display: flex; justify-content: center; gap: 10px;">
+        <div id="reel0" class="reel">❓</div>
+        <div id="reel1" class="reel">❓</div>
+        <div id="reel2" class="reel">❓</div>
     </div>
+
+    <div class="control-row">
+        <button id="btn0" onclick="stopReel(0)" disabled>STOP 1</button>
+        <button id="btn1" onclick="stopReel(1)" disabled>STOP 2</button>
+        <button id="btn2" onclick="stopReel(2)" disabled>STOP 3</button>
+    </div>
+
+    <div class="control-row">
+        <input type="number" id="sBet" value="100" min="10">
+        <button id="spinBtn" onclick="spin()">SPIN</button>
+    </div>
+    <div id="sRes" class="result"></div>
+</div>
 
 <div class="section">
     <div class="section-title"><span class="label">Blackjack</span></div>
@@ -270,25 +292,79 @@ socket.on('broadcast', msg => {
     log.scrollTop = log.scrollHeight;
 });
 
-// 4. スロット（HTMLの id="slotDisplay", id="sBet", id="sRes" に合わせました）
+let finalResult = ["🍒", "💎", "7️⃣"]; // サーバーからの結果を格納
+let intervals = [null, null, null];    // シャッフル用タイマー
+let isSpinning = [false, false, false]; // 回転フラグ
+
+const symbols = ["🍒", "💎", "7️⃣", "🍋", "⭐", "🔔"];
+
+// スピン開始
 function spin() {
     const bet = parseInt(document.getElementById('sBet').value) || 10;
+    
+    // UIのリセット
+    document.getElementById('spinBtn').disabled = true;
+    document.getElementById('sRes').textContent = "";
+    document.getElementById('gogoLamp').style.color = "#222";
+    document.getElementById('gogoLamp').style.textShadow = "none";
+
     socket.emit('spin_request', { bet: bet });
 }
 
+// サーバーから結果が届いた
 socket.on('spin_result', d => {
-    const display = document.getElementById('slotDisplay');
-    display.textContent = "🎰 🎰 🎰"; 
+    finalResult = d.result; // 結果を保存しておく（まだ表示しない）
+
+    // 3つのリールを回転（シャッフル）させる
+    for (let i = 0; i < 3; i++) {
+        isSpinning[i] = true;
+        document.getElementById(`stop${i}`).disabled = false;
+        
+        // シャッフル演出開始
+        intervals[i] = setInterval(() => {
+            document.getElementById(`reel${i}`).textContent = symbols[Math.floor(Math.random() * symbols.length)];
+        }, 60);
+    }
     
-    setTimeout(() => {
-        display.textContent = d.result.join(' ');
-        updateChips(d.newChips);
-        const res = document.getElementById('sRes');
-        res.textContent = d.win > 0 ? `WIN: ${d.win}枚！` : "LOSE";
-        res.className = "result " + (d.win > 0 ? "win" : "lose");
-    }, 600);
+    // 全リールが止まった後の処理用にデータだけ保持
+    window.lastSpinData = d;
 });
 
+// 各停止ボタンを押した時
+function stopReel(idx) {
+    if (!isSpinning[idx]) return;
+
+    clearInterval(intervals[idx]); // シャッフル停止
+    document.getElementById(`reel${idx}`).textContent = finalResult[idx]; // 本物の結果を表示
+    document.getElementById(`stop${idx}`).disabled = true;
+    isSpinning[idx] = false;
+
+    // 全部止まったか確認
+    if (!isSpinning.includes(true)) {
+        finishSpin();
+    }
+}
+
+// 全リール停止後の処理
+function finishSpin() {
+    const d = window.lastSpinData;
+    document.getElementById('spinBtn').disabled = false;
+    updateChips(d.newChips);
+
+    // WIN/LOSE表示
+    const res = document.getElementById('sRes');
+    res.textContent = d.win > 0 ? `WIN: ${d.win}枚！` : "LOSE";
+    res.className = "result " + (d.win > 0 ? "win" : "lose");
+
+    // 1/50のペカり演出（777の時）
+    if (finalResult.every(s => s === "7️⃣")) {
+        const lamp = document.getElementById('gogoLamp');
+        lamp.style.color = "#ff00ff";
+        lamp.style.textShadow = "0 0 10px #fff, 0 0 20px #ff00ff";
+        // ボーナス確定のSEやバイブをここに入れてもいいですね！
+    }
+}
+    
 // 5. ブラックジャック（HTMLの id="bjDCards", id="bjPCards", id="bjPScore" に合わせました）
 function startBJ() {
     const bet = parseInt(document.getElementById('bjBet').value) || 100;
@@ -392,6 +468,7 @@ socket.on('chat_history', (msgs) => {
 </script>
 </body>
 </html>
+
 
 
 
