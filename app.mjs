@@ -159,6 +159,24 @@ io.on('connection', (socket) => {
         } catch (err) { console.error(err); }
     });
 
+    // レート設定: 100スコア = 1チップ
+const CLICK_RATE = 100;
+
+socket.on('exchange_request', async (data) => {
+    const { score } = data; // フロントから送られてくるスコア
+    try {
+        const user = await User.findOne({ name: socket.data.userName });
+        if (!user || score < CLICK_RATE) return;
+
+        const reward = Math.floor(score / CLICK_RATE);
+        user.chips += reward;
+        await user.save();
+
+        socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
+        socket.emit('exchange_success', { addedChips: reward });
+    } catch (err) { console.error(err); }
+});
+
     // ブラックジャック
     socket.on('bj_start', async (data) => {
         const user = await User.findOne({ name: socket.data.userName });
@@ -246,3 +264,4 @@ async function updateRanking() {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, "0.0.0.0", () => console.log(`🚀 Server running on port ${PORT}`));
+
