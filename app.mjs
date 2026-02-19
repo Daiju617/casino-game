@@ -91,8 +91,9 @@ io.on('connection', (socket) => {
             socket.emit('login_success', { name: user.name, chips: user.chips });
 
             // ログイン成功時にチャット履歴（最新30件）を送信
-            const history = await Chat.find().sort({ time: -1 }).limit(30);
-            socket.emit('chat_history', history.reverse().map(c => `${c.userName}: ${c.message}`));
+const history = await Chat.find().sort({ time: -1 }).limit(30);
+// 余計な .map(...) を消して、DBから届いたデータをそのまま送ります
+socket.emit('chat_history', history.reverse());
             
             updateRanking();
         } catch (err) { console.error(err); }
@@ -251,5 +252,6 @@ async function updateRanking() {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, "0.0.0.0", () => console.log(`🚀 Server running on port ${PORT}`));
+
 
 
