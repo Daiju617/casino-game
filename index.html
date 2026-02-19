@@ -522,7 +522,6 @@ function renderCards(id, cards) {
 socket.on('chat_history', (msgs) => {
     const chatLog = document.getElementById('chat-log');
     if (!chatLog) return;
-    
     chatLog.innerHTML = ""; 
 
     msgs.forEach(data => {
@@ -535,21 +534,19 @@ socket.on('chat_history', (msgs) => {
         const msgDiv = document.createElement('div');
         msgDiv.className = isMe ? "msg-box msg-me" : "msg-box msg-other";
         
-        // 🛠 ここをチェック！ 🛠
-        // もし data.message で表示されないなら、data.text かもしれません。
-        // console.log(data); を入れて確認するのも手ですが、まずは message で統一しましょう。
-        msgDiv.textContent = data.message || "内容がありません"; 
+        // ✅ data.message が空なら、data.msg を探すようにします
+        msgDiv.textContent = data.message || data.msg || "データ形式エラー"; 
 
         chatLog.appendChild(infoDiv);
         chatLog.appendChild(msgDiv);
     });
-
     chatLog.scrollTop = chatLog.scrollHeight;
 });
     
 </script>
 </body>
 </html>
+
 
 
 
