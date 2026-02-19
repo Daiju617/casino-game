@@ -273,6 +273,18 @@
     </div>
 
     <div class="section">
+    <div class="section-title"><span class="label">ATM / 闇金窓口</span></div>
+    <div style="font-size: 1.4rem; margin: 10px 0;">BANK: <span id="bankBalance" style="color:#fcee0a;">0</span></div>
+    <div class="control-row">
+        <input type="number" id="atmAmount" value="500" step="100">
+    </div>
+    <div class="control-row">
+        <button onclick="socket.emit('atm_request', {amount: parseInt(document.getElementById('atmAmount').value), type:'deposit'})">預ける</button>
+        <button onclick="socket.emit('atm_request', {amount: parseInt(document.getElementById('atmAmount').value), type:'withdraw'})" style="color:#ff4d6a;">借りる/出す</button>
+    </div>
+</div>
+
+    <div class="section">
         <div class="section-title"><span class="label">Ranking</span></div>
         <div id="rList"></div>
     </div>
@@ -319,6 +331,7 @@ socket.on('login_success', d => {
     myName = d.name; // ← これを追加！(ここで自分の名前を「箱」に保存します)
     document.getElementById('loginOverlay').style.display = 'none';
     document.getElementById('myName').textContent = d.name;
+    document.getElementById('bankBalance').textContent = d.bank || 0;
     updateChips(d.chips);
 });
 
@@ -546,3 +559,4 @@ socket.on('chat_history', (msgs) => {
 </script>
 </body>
 </html>
+
