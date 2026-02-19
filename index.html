@@ -250,18 +250,19 @@
         <button onclick="startHL()">DEAL</button>
     </div>
     
-    <div class="control-row" id="hlActions" style="display:none; margin-top:15px;">
-        <button onclick="guessHL('high')" style="border-color:var(--accent2); color:var(--accent2);">HIGH ↑</button>
-        <button onclick="guessHL('low')">LOW ↓</button>
-        <button onclick="collectHL()" style="border-color:#ffcc00; color:#ffcc00;">COLLECT (終了)</button>
-    </div>
-    <div id="hlRes" class="result"></div>
+<div class="control-row">
+    <button id="stop0" onclick="stopReel(0)" disabled>STOP 1</button>
+    <button id="stop1" onclick="stopReel(1)" disabled>STOP 2</button>
+    <button id="stop2" onclick="stopReel(2)" disabled>STOP 3</button>
 </div>
 
-    <div class="section">
-        <div class="section-title"><span class="label">Ranking</span></div>
-        <div id="rList" style="text-align:left; padding:10px; font-size:0.9rem;"></div>
+<div class="section" style="grid-column: 1 / -1;">
+    <div class="section-title"><span class="label">Global Chat</span></div>
+    <div id="chat-log"></div> <div class="control-row">
+        <input type="text" id="chatInput" placeholder="MESSAGE..." style="width:70%;">
+        <button onclick="sendChat()">SEND</button>
     </div>
+</div>
 
     <div class="section" style="grid-column: 1 / -1;">
         <div class="section-title"><span class="label">Global Chat</span></div>
@@ -278,6 +279,7 @@
 <script>
 
     const socket = io();
+    let myName = ""; // ← これを追加！(今は空っぽだけど、ログインした時に自分の名前が入る箱です)
 
 // 1. チップ表示（HTMLの id="chips" に合わせました）
 function updateChips(amount) {
@@ -301,6 +303,7 @@ function login() {
 }
 
 socket.on('login_success', d => {
+    myName = d.name; // ← これを追加！(ここで自分の名前を「箱」に保存します)
     document.getElementById('loginOverlay').style.display = 'none';
     document.getElementById('myName').textContent = d.name;
     updateChips(d.chips);
@@ -321,28 +324,27 @@ function sendChat() {
 
 socket.on('broadcast', (data) => {
     const chatLog = document.getElementById('chat-log');
-    const msgDiv = document.createElement('div');
-    
-    // 自分の名前と、送られてきた名前が一致するかチェック
-    const isMe = (data.userName === myName); // myNameはログイン時に保存した自分の名前
+    if (!chatLog) return; // ここでエラー（null）を防ぐ！
 
-    // HTMLの構造を作成
+    // 自分の名前と一致するかチェック（冒頭で let myName = ""; している前提）
+    const isMe = (data.userName === myName);
+
+    // 1. メッセージの外枠（吹き出し）を作る
+    const msgDiv = document.createElement('div');
     msgDiv.className = isMe ? "msg-box msg-me" : "msg-box msg-other";
-    
-    // 名前を表示するための小さな文字
+    msgDiv.textContent = data.message;
+
+    // 2. 名前を表示する部分を作る
     const infoDiv = document.createElement('div');
     infoDiv.className = "msg-info";
-    infoDiv.textContent = data.userName;
+    // 自分のときは「あなた」、相手のときはその人の名前を出すと分かりやすいです
+    infoDiv.textContent = isMe ? "あなた" : data.userName;
 
-    msgDiv.textContent = data.message;
-    
-    // ログに追加
-    const container = document.createElement('div');
-    container.style.display = "contents"; // 構造を崩さないため
+    // 3. 画面に追加する
     chatLog.appendChild(infoDiv);
     chatLog.appendChild(msgDiv);
 
-    // 一番下までスクロール
+    // 4. 自動で一番下までスクロール
     chatLog.scrollTop = chatLog.scrollHeight;
 });
 
@@ -522,6 +524,7 @@ socket.on('chat_history', (msgs) => {
 </script>
 </body>
 </html>
+
 
 
 
