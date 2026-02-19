@@ -520,37 +520,37 @@ function renderCards(id, cards) {
 }
 
 socket.on('chat_history', (msgs) => {
-    // ❌ 以前の 'log' ではなく、✅ 'chat-log' を指定する
     const chatLog = document.getElementById('chat-log');
     if (!chatLog) return;
     
-    chatLog.innerHTML = ""; // 一旦中身を空にする
+    chatLog.innerHTML = ""; 
 
     msgs.forEach(data => {
         const isMe = (data.userName === myName);
         
-        // 名前（infoDiv）を作る
         const infoDiv = document.createElement('div');
         infoDiv.className = "msg-info";
         infoDiv.textContent = data.userName;
 
-        // 吹き出し（msgDiv）を作る
         const msgDiv = document.createElement('div');
         msgDiv.className = isMe ? "msg-box msg-me" : "msg-box msg-other";
-        msgDiv.textContent = data.message;
+        
+        // 🛠 ここをチェック！ 🛠
+        // もし data.message で表示されないなら、data.text かもしれません。
+        // console.log(data); を入れて確認するのも手ですが、まずは message で統一しましょう。
+        msgDiv.textContent = data.message || "内容がありません"; 
 
-        // 指定した枠内に追加
         chatLog.appendChild(infoDiv);
         chatLog.appendChild(msgDiv);
     });
 
-    // 一番下までスクロールさせる
     chatLog.scrollTop = chatLog.scrollHeight;
 });
     
 </script>
 </body>
 </html>
+
 
 
 
