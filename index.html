@@ -113,11 +113,49 @@
     margin-top: 10px;
 }
 
-        .chat-message { display: flex; flex-direction: column; }
-/* 相手の発言（左寄せ） */
-.message-other { align-self: flex-start; background: #e0e0e0; border-radius: 10px; padding: 8px; margin: 5px; }
-/* 自分の発言（右寄せ・緑色） */
-.message-me { align-self: flex-end; background: #85e085; border-radius: 10px; padding: 8px; margin: 5px; }
+/* チャットエリア全体の形を整える */
+#chat-log {
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+    background: #7494c0; /* LINEっぽい背景色 */
+    overflow-y: auto;
+    height: 400px;
+}
+
+/* 共通の吹き出しスタイル */
+.msg-box {
+    max-width: 70%;
+    margin: 5px;
+    padding: 10px;
+    border-radius: 15px;
+    word-wrap: break-word;
+    position: relative;
+    font-size: 14px;
+}
+
+/* 相手の発言（左側・白） */
+.msg-other {
+    align-self: flex-start;
+    background: white;
+    color: black;
+    border-bottom-left-radius: 2px;
+}
+
+/* 自分の発言（右側・緑） */
+.msg-me {
+    align-self: flex-end;
+    background: #85e085;
+    color: black;
+    border-bottom-right-radius: 2px;
+}
+
+/* 名前や時間の表示 */
+.msg-info {
+    font-size: 10px;
+    color: #eee;
+    margin-bottom: 2px;
+}
         
     </style>
 </head>
@@ -281,15 +319,31 @@ function sendChat() {
     }
 }
 
-socket.on('broadcast', msg => {
-    const log = document.getElementById('log');
-    const div = document.createElement('div');
-    div.style.borderLeft = "2px solid var(--accent)";
-    div.style.paddingLeft = "8px";
-    div.style.marginBottom = "4px";
-    div.textContent = msg;
-    log.appendChild(div);
-    log.scrollTop = log.scrollHeight;
+socket.on('broadcast', (data) => {
+    const chatLog = document.getElementById('chat-log');
+    const msgDiv = document.createElement('div');
+    
+    // 自分の名前と、送られてきた名前が一致するかチェック
+    const isMe = (data.userName === myName); // myNameはログイン時に保存した自分の名前
+
+    // HTMLの構造を作成
+    msgDiv.className = isMe ? "msg-box msg-me" : "msg-box msg-other";
+    
+    // 名前を表示するための小さな文字
+    const infoDiv = document.createElement('div');
+    infoDiv.className = "msg-info";
+    infoDiv.textContent = data.userName;
+
+    msgDiv.textContent = data.message;
+    
+    // ログに追加
+    const container = document.createElement('div');
+    container.style.display = "contents"; // 構造を崩さないため
+    chatLog.appendChild(infoDiv);
+    chatLog.appendChild(msgDiv);
+
+    // 一番下までスクロール
+    chatLog.scrollTop = chatLog.scrollHeight;
 });
 
 let finalResult = ["🍒", "💎", "7️⃣"]; // サーバーからの結果を格納
@@ -468,6 +522,7 @@ socket.on('chat_history', (msgs) => {
 </script>
 </body>
 </html>
+
 
 
 
