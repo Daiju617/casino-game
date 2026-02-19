@@ -268,8 +268,6 @@ body.clicker-mode button {
     <div style="margin-top:10px; font-size:0.9rem;">PLAYER: <span id="myName">-</span></div>
 </header>
 
-    <div id="casino-area" style="display:none;">
-
 <main>
     <div class="section">
         <div class="section-title"><span class="label">Cyber Slot</span></div>
@@ -342,8 +340,6 @@ body.clicker-mode button {
         <div id="rList"></div>
     </div>
 
-    </div>
-
     <div id="clicker-area" style="display:none;">
 
     <div id="menu-screen" class="section">
@@ -352,7 +348,6 @@ body.clicker-mode button {
     <button onclick="showGame('clicker')" style="background: #fff; color: #000;">クリッカー（出稼ぎエリア）</button>
 </div>
 
-<div id="clicker-area" style="display: none; text-align: center; padding: 50px;">
     <h1 style="color: #555;">💰 出稼ぎクリッカー</h1>
     <div id="click-score" style="font-size: 3rem; margin: 20px;">0</div>
     <button id="main-button" onclick="hitClicker()" style="width: 200px; height: 200px; border-radius: 50%; font-size: 2rem; cursor: pointer;">PUSH!</button>
@@ -360,8 +355,6 @@ body.clicker-mode button {
     <button onclick="exchangeScore()" style="background: #4caf50;">チップへ換金(100:1)</button>
     <button onclick="showGame('menu')" style="background: #777;">メニューへ戻る</button>
 </div>
-
-        </div>
 
     <div class="section chat-section">
         <div class="section-title"><span class="label">Global Chat</span></div>
@@ -694,6 +687,7 @@ socket.on('chat_history', (msgs) => {
 </script>
 </body>
 </html>
+
 
 
 
