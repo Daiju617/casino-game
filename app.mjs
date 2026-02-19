@@ -20,11 +20,12 @@ mongoose.connect(MONGO_URI)
     .then(() => console.log("✅ MongoDB接続成功"))
     .catch(err => console.error("❌ MongoDB接続エラー:", err.message));
 
-// スキーマ定義
 const userSchema = new mongoose.Schema({
     name: { type: String, required: true },
     password: { type: String, required: true },
     chips: { type: Number, default: 1000 },
+    bank: { type: Number, default: 0 }, // ✅ 銀行預金（マイナスなら借金）
+    ip: { type: String },               // ✅ IPアドレス保存用
     lastLogin: { type: Date, default: Date.now }
 });
 const User = mongoose.model('User', userSchema);
@@ -66,30 +67,69 @@ let hlCurrentCard = {};
 io.on('connection', (socket) => {
     console.log('ユーザーが接続しました');
 
-    // ログイン・新規登録
-    socket.on('login_request', async (data) => {
-        const { name, password } = data;
-        try {
-            let user = await User.findOne({ name: name });
-            if (!user) {
-                user = new User({ name: name, password: password, chips: 1000, lastLogin: new Date() });
-                await user.save();
-                io.emit('broadcast', `✨ 新規プレイヤー ${name} さんが来店しました！`);
-            } else {
-                if (user.password !== password) return socket.emit('login_error', "パスワードが違います");
-                
-                const now = new Date();
-                const last = user.lastLogin || new Date(0);
-                if (now - last > 24 * 60 * 60 * 1000) {
-                    user.chips += 500;
-                    user.lastLogin = now;
-                    await user.save();
-                    io.emit('broadcast', `🎁 ${name} さん、来店ボーナス500枚！`);
-                }
-            }
-            socket.data.userName = name;
-            socket.emit('login_success', { name: user.name, chips: user.chips });
+    socket.on('atm_request', async (data) => {
+    const { amount, type } = data;
+    try {
+        const user = await User.findOne({ name: socket.data.userName });
+        if (!user || amount <= 0) return;
 
+        if (type === 'deposit') { // 預ける
+            if (user.chips < amount) return socket.emit('login_error', "手持ちが足りません");
+            user.chips -= amount;
+            user.bank += amount;
+        } else if (type === 'withdraw') { // 引き出す（借金も可）
+            // 借金の限度額を -10,000枚 に設定
+            if (user.bank - amount < -10000) return socket.emit('login_error', "融資限度額（1万枚）を超えています");
+            user.chips += amount;
+            user.bank -= amount;
+        }
+
+        await user.save();
+        // 更新された残高をフロントに送る
+        socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
+    } catch (err) { console.error(err); }
+});
+
+socket.on('login_request', async (data) => {
+    const { name, password } = data;
+    const clientIp = socket.handshake.address; // 接続元のIPを取得
+
+    try {
+        let user = await User.findOne({ name: name });
+
+        if (!user) {
+            // ✅ 【IP制限】このIPで既に登録されているユーザーがいないか確認
+            const ipExists = await User.findOne({ ip: clientIp });
+            if (ipExists) {
+                return socket.emit('login_error', "この端末からは1つしかアカウントを作れません");
+            }
+            // 新規作成（IPを記録）
+            user = new User({ name: name, password: password, ip: clientIp, chips: 1000 });
+            await user.save();
+        } else {
+            // パスワード確認
+            if (user.password !== password) return socket.emit('login_error', "パスワードが違います");
+
+            // ✅ 【闇金利息】ログイン時に借金があれば10%の利息を加算
+            if (user.bank < 0) {
+                const interest = Math.floor(user.bank * 0.1); // マイナスが増える
+                user.bank += interest;
+                await user.save();
+                socket.emit('login_error', `【ATM通知】借金の利息 ${Math.abs(interest)}枚 が加算されました`);
+            }
+        }
+
+        socket.data.userName = name;
+        // フロントに bank も一緒に送る
+        socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
+        
+        // チャット履歴送信などはそのまま
+        const history = await Chat.find().sort({ time: -1 }).limit(30);
+        socket.emit('chat_history', history.reverse());
+        updateRanking();
+    } catch (err) { console.error(err); }
+});
+    
             // ログイン成功時にチャット履歴（最新30件）を送信
 const history = await Chat.find().sort({ time: -1 }).limit(30);
 // 余計な .map(...) を消して、DBから届いたデータをそのまま送ります
@@ -252,6 +292,7 @@ async function updateRanking() {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, "0.0.0.0", () => console.log(`🚀 Server running on port ${PORT}`));
+
 
 
 
