@@ -98,42 +98,71 @@ io.on('connection', (socket) => {
         } catch (err) { console.error(err); }
     });
 
-    // チャット機能（保存 ＋ お掃除）
-    socket.on('chat_message', async (msg) => {
-        if (!socket.data.userName) return;
+// --- [スロット] ペカり確率 1/50 のロジック追加 ---
+socket.on('spin_request', async (data) => {
+    try {
+        const user = await User.findOne({ name: socket.data.userName });
+        if (!user || user.chips < data.bet) return;
+
+        const symbols = ["🍒", "💎", "7️⃣", "🍋", "⭐"];
         
-        const newChat = new Chat({ userName: socket.data.userName, message: msg });
-        await newChat.save();
-
-        const count = await Chat.countDocuments();
-        if (count > 100) {
-            const oldest = await Chat.find().sort({ time: 1 }).limit(count - 100);
-            await Chat.deleteMany({ _id: { $in: oldest.map(c => c._id) } });
+        // 1/50の確率で「当たり（ペカり）」フラグを立てる
+        const isPekari = Math.floor(Math.random() * 50) === 0;
+        
+        let result;
+        if (isPekari) {
+            // ペカる時は強制的に 7-7-7 にする
+            result = ["7️⃣", "7️⃣", "7️⃣"];
+        } else {
+            // 通常時はランダム（たまに揃う）
+            result = [
+                symbols[Math.floor(Math.random() * 5)],
+                symbols[Math.floor(Math.random() * 5)],
+                symbols[Math.floor(Math.random() * 5)]
+            ];
         }
-        io.emit('broadcast', `${socket.data.userName}: ${msg}`);
-    });
 
-    // スロット
-    socket.on('spin_request', async (data) => {
-        try {
-            const user = await User.findOne({ name: socket.data.userName });
-            if (!user || user.chips < data.bet) return;
-            const symbols = ["🍒", "💎", "7️⃣", "🍋", "⭐"];
-            const result = [symbols[Math.floor(Math.random()*5)], symbols[Math.floor(Math.random()*5)], symbols[Math.floor(Math.random()*5)]];
-            let mult = 0;
-            if (result[0] === result[1] && result[1] === result[2]) mult = (result[0] === "7️⃣") ? 50 : 10;
-            else if (result[0] === result[1] || result[1] === result[2] || result[0] === result[2]) mult = 2;
-            
-            user.chips = user.chips - data.bet + (data.bet * mult);
-            if (user.chips <= 0) {
-                await User.deleteOne({ _id: user._id });
-                return socket.emit('login_error', "破産しました。データは削除されます。");
-            }
-            await user.save();
-            socket.emit('spin_result', { result, win: data.bet * mult, newChips: user.chips });
-            updateRanking();
-        } catch (err) { console.error(err); }
+        let multiplier = 0;
+        if (result[0] === result[1] && result[1] === result[2]) {
+            multiplier = (result[0] === "7️⃣") ? 50 : 10;
+        }
+
+        user.chips = user.chips - data.bet + (data.bet * multiplier);
+        if (user.chips <= 0) {
+            await User.deleteOne({ _id: user._id });
+            return socket.emit('login_error', "破産しました。");
+        }
+        await user.save();
+
+        // クライアントに結果とペカりフラグを送信
+        socket.emit('spin_result', { 
+            result, 
+            win: data.bet * multiplier, 
+            newChips: user.chips,
+            isPekari: isPekari // これをフロントで受け取って光らせる！
+        });
+        updateRanking();
+    } catch (err) { console.error(err); }
+});
+
+// --- [チャット] LINE風にするためのデータ構造 ---
+socket.on('chat_message', async (msg) => {
+    if (!socket.data.userName) return;
+    
+    const newChat = new Chat({ 
+        userName: socket.data.userName, 
+        message: msg,
+        time: new Date()
     });
+    await newChat.save();
+
+    // 全員に「誰が送ったか」を明確にして送信
+    io.emit('broadcast', {
+        userName: socket.data.userName,
+        message: msg,
+        time: newChat.time
+    });
+});
 
     // ブラックジャック
     socket.on('bj_start', async (data) => {
@@ -221,3 +250,4 @@ async function updateRanking() {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, "0.0.0.0", () => console.log(`🚀 Server running on port ${PORT}`));
+
