@@ -24,8 +24,8 @@ const userSchema = new mongoose.Schema({
     name: { type: String, required: true },
     password: { type: String, required: true },
     chips: { type: Number, default: 1000 },
-    bank: { type: Number, default: 0 }, // ✅ 銀行預金（マイナスなら借金）
-    ip: { type: String },               // ✅ IPアドレス保存用
+    bank: { type: Number, default: 0 }, // 銀行預金（マイナスなら借金）
+    ip: { type: String },               // IPアドレス保存用
     lastLogin: { type: Date, default: Date.now }
 });
 const User = mongoose.model('User', userSchema);
@@ -67,144 +67,97 @@ let hlCurrentCard = {};
 io.on('connection', (socket) => {
     console.log('ユーザーが接続しました');
 
+    // ATM機能
     socket.on('atm_request', async (data) => {
-    const { amount, type } = data;
-    try {
-        const user = await User.findOne({ name: socket.data.userName });
-        if (!user || amount <= 0) return;
+        const { amount, type } = data;
+        try {
+            const user = await User.findOne({ name: socket.data.userName });
+            if (!user || amount <= 0) return;
 
-        if (type === 'deposit') { // 預ける
-            if (user.chips < amount) return socket.emit('login_error', "手持ちが足りません");
-            user.chips -= amount;
-            user.bank += amount;
-        } else if (type === 'withdraw') { // 引き出す（借金も可）
-            // 借金の限度額を -10,000枚 に設定
-            if (user.bank - amount < -10000) return socket.emit('login_error', "融資限度額（1万枚）を超えています");
-            user.chips += amount;
-            user.bank -= amount;
-        }
-
-        await user.save();
-        // 更新された残高をフロントに送る
-        socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
-    } catch (err) { console.error(err); }
-});
-
-socket.on('login_request', async (data) => {
-    const { name, password } = data;
-    const clientIp = socket.handshake.address; // 接続元のIPを取得
-
-    try {
-        let user = await User.findOne({ name: name });
-
-        if (!user) {
-            // ✅ 【IP制限】このIPで既に登録されているユーザーがいないか確認
-            const ipExists = await User.findOne({ ip: clientIp });
-            if (ipExists) {
-                return socket.emit('login_error', "この端末からは1つしかアカウントを作れません");
+            if (type === 'deposit') {
+                if (user.chips < amount) return socket.emit('login_error', "手持ちが足りません");
+                user.chips -= amount;
+                user.bank += amount;
+            } else if (type === 'withdraw') {
+                if (user.bank - amount < -10000) return socket.emit('login_error', "融資限度額（1万枚）を超えています");
+                user.chips += amount;
+                user.bank -= amount;
             }
-            // 新規作成（IPを記録）
-            user = new User({ name: name, password: password, ip: clientIp, chips: 1000 });
             await user.save();
-        } else {
-            // パスワード確認
-            if (user.password !== password) return socket.emit('login_error', "パスワードが違います");
-
-            // ✅ 【闇金利息】ログイン時に借金があれば10%の利息を加算
-            if (user.bank < 0) {
-                const interest = Math.floor(user.bank * 0.1); // マイナスが増える
-                user.bank += interest;
-                await user.save();
-                socket.emit('login_error', `【ATM通知】借金の利息 ${Math.abs(interest)}枚 が加算されました`);
-            }
-        }
-
-        socket.data.userName = name;
-        // フロントに bank も一緒に送る
-        socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
-        
-        // チャット履歴送信などはそのまま
-        const history = await Chat.find().sort({ time: -1 }).limit(30);
-        socket.emit('chat_history', history.reverse());
-        updateRanking();
-    } catch (err) { console.error(err); }
-});
-    
-            // ログイン成功時にチャット履歴（最新30件）を送信
-const history = await Chat.find().sort({ time: -1 }).limit(30);
-// 余計な .map(...) を消して、DBから届いたデータをそのまま送ります
-socket.emit('chat_history', history.reverse());
-            
+            socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
             updateRanking();
         } catch (err) { console.error(err); }
     });
 
-// --- [スロット] ペカり確率 1/50 のロジック追加 ---
-socket.on('spin_request', async (data) => {
-    try {
-        const user = await User.findOne({ name: socket.data.userName });
-        if (!user || user.chips < data.bet) return;
+    // ログイン・登録
+    socket.on('login_request', async (data) => {
+        const { name, password } = data;
+        const clientIp = socket.handshake.address;
+        try {
+            let user = await User.findOne({ name: name });
+            if (!user) {
+                const ipExists = await User.findOne({ ip: clientIp });
+                if (ipExists) return socket.emit('login_error', "この端末からは1つしかアカウントを作れません");
+                user = new User({ name: name, password: password, ip: clientIp, chips: 1000 });
+                await user.save();
+            } else {
+                if (user.password !== password) return socket.emit('login_error', "パスワードが違います");
+                if (user.bank < 0) {
+                    const interest = Math.floor(user.bank * 0.1);
+                    user.bank += interest;
+                    await user.save();
+                    socket.emit('login_error', `【ATM通知】借金の利息 ${Math.abs(interest)}枚 が加算されました`);
+                }
+            }
+            socket.data.userName = name;
+            socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
+            
+            const history = await Chat.find().sort({ time: -1 }).limit(30);
+            // 履歴にも債務者情報を載せるため、Mapで変換して送る
+            const chatHistory = await Promise.all(history.reverse().map(async (c) => {
+                const author = await User.findOne({ name: c.userName });
+                return { userName: c.userName, message: c.message, isDebtor: author ? author.bank < 0 : false };
+            }));
+            socket.emit('chat_history', chatHistory);
+            updateRanking();
+        } catch (err) { console.error(err); }
+    });
 
-        const symbols = ["🍒", "💎", "7️⃣", "🍋", "⭐"];
-        
-        // 1/50の確率で「当たり（ペカり）」フラグを立てる
-        const isPekari = Math.floor(Math.random() * 50) === 0;
-        
-        let result;
-        if (isPekari) {
-            // ペカる時は強制的に 7-7-7 にする
-            result = ["7️⃣", "7️⃣", "7️⃣"];
-        } else {
-            // 通常時はランダム（たまに揃う）
-            result = [
-                symbols[Math.floor(Math.random() * 5)],
-                symbols[Math.floor(Math.random() * 5)],
-                symbols[Math.floor(Math.random() * 5)]
-            ];
-        }
+    // スロット
+    socket.on('spin_request', async (data) => {
+        try {
+            const user = await User.findOne({ name: socket.data.userName });
+            if (!user || user.chips < data.bet) return;
+            const symbols = ["🍒", "💎", "7️⃣", "🍋", "⭐"];
+            const isPekari = Math.floor(Math.random() * 50) === 0;
+            let result = isPekari ? ["7️⃣", "7️⃣", "7️⃣"] : [symbols[Math.floor(Math.random() * 5)], symbols[Math.floor(Math.random() * 5)], symbols[Math.floor(Math.random() * 5)]];
+            
+            let multiplier = (result[0] === result[1] && result[1] === result[2]) ? (result[0] === "7️⃣" ? 50 : 10) : 0;
+            user.chips = user.chips - data.bet + (data.bet * multiplier);
+            
+            // 破産削除ではなく、残高0にしてATMへ誘導
+            if (user.chips < 0) user.chips = 0;
+            await user.save();
+            socket.emit('spin_result', { result, win: data.bet * multiplier, newChips: user.chips, isPekari });
+            updateRanking();
+        } catch (err) { console.error(err); }
+    });
 
-        let multiplier = 0;
-        if (result[0] === result[1] && result[1] === result[2]) {
-            multiplier = (result[0] === "7️⃣") ? 50 : 10;
-        }
-
-        user.chips = user.chips - data.bet + (data.bet * multiplier);
-        if (user.chips <= 0) {
-            await User.deleteOne({ _id: user._id });
-            return socket.emit('login_error', "破産しました。");
-        }
-        await user.save();
-
-        // クライアントに結果とペカりフラグを送信
-        socket.emit('spin_result', { 
-            result, 
-            win: data.bet * multiplier, 
-            newChips: user.chips,
-            isPekari: isPekari // これをフロントで受け取って光らせる！
-        });
-        updateRanking();
-    } catch (err) { console.error(err); }
-});
-
-socket.on('chat_message', async (data) => {
-    if (!socket.data.userName) return;
-
-    // 受信したデータが「文字列(msg)」か「オブジェクト({message: msg})」か判定する
-    const messageText = (typeof data === 'string') ? data : (data.message || data.msg);
-
-    try {
-        const newChat = new Chat({ 
-            userName: socket.data.userName, 
-            message: messageText // ✅ 確実にこの名前で保存
-        });
-        await newChat.save();
-
-        io.emit('broadcast', {
-            userName: socket.data.userName,
-            message: messageText
-        });
-    } catch (err) { console.error("DB保存エラー:", err); }
-});
+    // チャット
+    socket.on('chat_message', async (data) => {
+        if (!socket.data.userName) return;
+        const messageText = (typeof data === 'string') ? data : (data.message || data.msg);
+        try {
+            const user = await User.findOne({ name: socket.data.userName });
+            const newChat = new Chat({ userName: socket.data.userName, message: messageText });
+            await newChat.save();
+            io.emit('broadcast', {
+                userName: socket.data.userName,
+                message: messageText,
+                isDebtor: user ? user.bank < 0 : false
+            });
+        } catch (err) { console.error(err); }
+    });
 
     // ブラックジャック
     socket.on('bj_start', async (data) => {
@@ -220,8 +173,7 @@ socket.on('chat_message', async (data) => {
         g.p.push(g.deck.pop());
         const sum = getBJValue(g.p);
         if (sum > 21) {
-            socket.emit('bj_result', { player: g.p, dealer: g.d, msg: "BUST (Lose)", win: 0 });
-            handleBJEnd(socket, g, 0);
+            handleBJEnd(socket, g, 0, "BUST (Lose)");
         } else {
             socket.emit('bj_update', { player: g.p, dealer: [g.d[0], {rank:'?'}], pSum: sum });
         }
@@ -255,10 +207,7 @@ socket.on('chat_message', async (data) => {
             let win = (nxtIdx === curIdx) ? data.bet : (((data.choice==='high'&&nxtIdx>curIdx)||(data.choice==='low'&&nxtIdx<curIdx)) ? data.bet*2 : 0);
             
             user.chips = user.chips - data.bet + win;
-            if (user.chips <= 0) {
-                await User.deleteOne({ _id: user._id });
-                return socket.emit('hl_result', { oldCard: nextCard, msg: "BANKRUPT", newChips: 0 });
-            }
+            if (user.chips < 0) user.chips = 0;
             await user.save();
             hlCurrentCard[socket.id] = nextCard;
             socket.emit('hl_result', { oldCard: nextCard, msg: win>data.bet?"WIN!":(win===0?"LOSE":"PUSH"), newChips: user.chips });
@@ -276,8 +225,8 @@ async function handleBJEnd(socket, g, win, msg) {
     const user = await User.findOne({ name: socket.data.userName });
     if (!user) return;
     user.chips = user.chips - g.bet + win;
-    if (user.chips <= 0) await User.deleteOne({ _id: user._id });
-    else await user.save();
+    if (user.chips < 0) user.chips = 0;
+    await user.save();
     socket.emit('bj_result', { player: g.p, dealer: g.d, msg, newChips: user.chips });
     delete bjGames[socket.id];
     updateRanking();
@@ -285,14 +234,15 @@ async function handleBJEnd(socket, g, win, msg) {
 
 async function updateRanking() {
     try {
-        const list = await User.find().sort({ chips: -1 }).limit(5);
+        const users = await User.find().sort({ chips: -1 }).limit(10);
+        const list = users.map(u => ({
+            name: u.name,
+            chips: u.chips,
+            isDebtor: u.bank < 0
+        }));
         io.emit('update_ranking', list);
     } catch (err) { console.error(err); }
 }
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, "0.0.0.0", () => console.log(`🚀 Server running on port ${PORT}`));
-
-
-
-
