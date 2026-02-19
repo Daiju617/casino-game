@@ -350,27 +350,24 @@ function sendChat() {
 
 socket.on('broadcast', (data) => {
     const chatLog = document.getElementById('chat-log');
-    if (!chatLog) return; // ここでエラー（null）を防ぐ！
-
-    // 自分の名前と一致するかチェック（冒頭で let myName = ""; している前提）
     const isMe = (data.userName === myName);
+    
+    const infoDiv = document.createElement('div');
+    infoDiv.className = "msg-info";
+    
+    // ✅ 名前の横に [債務者] を出す判定
+    let displayName = isMe ? "あなた" : data.userName;
+    if (data.isDebtor) {
+        displayName += ' <span style="color:#ff4d6a; font-weight:bold; margin-left:5px;">[債務者]</span>';
+    }
+    infoDiv.innerHTML = displayName; // innerHTMLを使うことでタグを有効にする
 
-    // 1. メッセージの外枠（吹き出し）を作る
     const msgDiv = document.createElement('div');
     msgDiv.className = isMe ? "msg-box msg-me" : "msg-box msg-other";
     msgDiv.textContent = data.message;
 
-    // 2. 名前を表示する部分を作る
-    const infoDiv = document.createElement('div');
-    infoDiv.className = "msg-info";
-    // 自分のときは「あなた」、相手のときはその人の名前を出すと分かりやすいです
-    infoDiv.textContent = isMe ? "あなた" : data.userName;
-
-    // 3. 画面に追加する
     chatLog.appendChild(infoDiv);
     chatLog.appendChild(msgDiv);
-
-    // 4. 自動で一番下までスクロール
     chatLog.scrollTop = chatLog.scrollHeight;
 });
 
@@ -542,12 +539,15 @@ socket.on('chat_history', (msgs) => {
         
         const infoDiv = document.createElement('div');
         infoDiv.className = "msg-info";
-        infoDiv.textContent = data.userName;
+        
+        let nameLabel = data.userName;
+        if (data.isDebtor) {
+            nameLabel += ' <span style="color:#ff4d6a; font-weight:bold; margin-left:5px;">[債務者]</span>';
+        }
+        infoDiv.innerHTML = nameLabel;
 
         const msgDiv = document.createElement('div');
         msgDiv.className = isMe ? "msg-box msg-me" : "msg-box msg-other";
-        
-        // 🛠 ここを message 固定にする
         msgDiv.textContent = data.message || "表示エラー"; 
 
         chatLog.appendChild(infoDiv);
@@ -559,4 +559,5 @@ socket.on('chat_history', (msgs) => {
 </script>
 </body>
 </html>
+
 
