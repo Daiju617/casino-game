@@ -346,12 +346,29 @@ body.clicker-mode button {
     <button onclick="showGame('clicker')" style="background: #fff; color: #000;">クリッカー（出稼ぎエリア）</button>
 </div>
 
-    <h1 style="color: #555;">💰 出稼ぎクリッカー</h1>
-    <div id="click-score" style="font-size: 3rem; margin: 20px;">0</div>
-    <button id="main-button" onclick="hitClicker()" style="width: 200px; height: 200px; border-radius: 50%; font-size: 2rem; cursor: pointer;">PUSH!</button>
-    <br><br>
-    <button onclick="exchangeScore()" style="background: #4caf50;">チップへ換金(100:1)</button>
-    <button onclick="showGame('menu')" style="background: #777;">メニューへ戻る</button>
+<div id="clicker-area" class="section" style="display:none; max-width: 600px; margin: 10px auto;">
+    <div class="section-title"><span class="label">出稼ぎエリア</span></div>
+    
+    <h2 style="color: var(--accent); margin-top: 10px;">💰 出稼ぎクリッカー</h2>
+    
+    <div id="click-score" style="font-size: 3rem; margin: 15px 0; color: #fff; text-shadow: 0 0 10px var(--accent);">0</div>
+    
+    <div class="control-row">
+        <button id="main-button" onclick="hitClicker()" style="width: 150px; height: 150px; border-radius: 50%; font-size: 1.5rem; background: #000; color: #fff; border: 3px solid var(--accent); cursor: pointer; box-shadow: 0 0 15px var(--accent);">
+            PUSH!
+        </button>
+    </div>
+
+    <br>
+
+    <div class="control-row" style="gap: 15px;">
+        <button onclick="exchangeScore()" style="background: #000; color: #fff; border: 1px solid #0ff; padding: 10px 20px;">
+            チップへ換金(100:1)
+        </button>
+        <button onclick="showGame('menu')" style="background: #000; color: #fff; border: 1px solid #fff; padding: 10px 20px;">
+            メニューへ戻る
+        </button>
+    </div>
 </div>
 
     <div class="section chat-section">
@@ -685,6 +702,7 @@ socket.on('chat_history', (msgs) => {
 </script>
 </body>
 </html>
+
 
 
 
