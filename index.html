@@ -534,8 +534,8 @@ socket.on('chat_history', (msgs) => {
         const msgDiv = document.createElement('div');
         msgDiv.className = isMe ? "msg-box msg-me" : "msg-box msg-other";
         
-        // ✅ data.message が空なら、data.msg を探すようにします
-        msgDiv.textContent = data.message || data.msg || "データ形式エラー"; 
+        // 🛠 ここを message 固定にする
+        msgDiv.textContent = data.message || "表示エラー"; 
 
         chatLog.appendChild(infoDiv);
         chatLog.appendChild(msgDiv);
@@ -546,24 +546,3 @@ socket.on('chat_history', (msgs) => {
 </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
