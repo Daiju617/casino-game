@@ -519,24 +519,39 @@ function renderCards(id, cards) {
     }).join('');
 }
 
-    // サーバーから過去ログが届いたら表示する
 socket.on('chat_history', (msgs) => {
-    const log = document.getElementById('log');
-    log.innerHTML = ""; // 一旦クリア（二重表示防止）
-    msgs.forEach(msg => {
-        const div = document.createElement('div');
-        div.style.borderLeft = "2px solid var(--accent)";
-        div.style.paddingLeft = "8px";
-        div.style.marginBottom = "4px";
-        div.textContent = msg;
-        log.appendChild(div);
+    // ❌ 以前の 'log' ではなく、✅ 'chat-log' を指定する
+    const chatLog = document.getElementById('chat-log');
+    if (!chatLog) return;
+    
+    chatLog.innerHTML = ""; // 一旦中身を空にする
+
+    msgs.forEach(data => {
+        const isMe = (data.userName === myName);
+        
+        // 名前（infoDiv）を作る
+        const infoDiv = document.createElement('div');
+        infoDiv.className = "msg-info";
+        infoDiv.textContent = data.userName;
+
+        // 吹き出し（msgDiv）を作る
+        const msgDiv = document.createElement('div');
+        msgDiv.className = isMe ? "msg-box msg-me" : "msg-box msg-other";
+        msgDiv.textContent = data.message;
+
+        // 指定した枠内に追加
+        chatLog.appendChild(infoDiv);
+        chatLog.appendChild(msgDiv);
     });
-    log.scrollTop = log.scrollHeight;
+
+    // 一番下までスクロールさせる
+    chatLog.scrollTop = chatLog.scrollHeight;
 });
     
 </script>
 </body>
 </html>
+
 
 
 
