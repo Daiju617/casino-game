@@ -35,15 +35,36 @@
             border:1px solid rgba(0,255,255,0.5); box-shadow:0 0 15px rgba(0,255,255,0.4); font-weight:bold;
         }
         #chips{ font-size:1.4rem; color:#fff; text-shadow:0 0 8px var(--accent); }
-        main{
-            width:100%; max-width:1100px; padding:10px 15px 40px;
-            display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:20px;
-        }
-        .section{
-            position:relative; background:radial-gradient(circle at top left,#1a1a3a,#050510 60%);
-            border-radius:18px; padding:18px 16px 20px; border:1px solid rgba(0,255,255,0.4);
-            box-shadow: 0 0 25px rgba(0,255,255,0.25), 0 0 40px rgba(255,0,255,0.15); overflow:hidden;
-        }
+       main {
+    width: 100%;
+    max-width: 1200px; /* 少し広げます */
+    display: flex;     /* GridからFlexに変更して横並びを制御 */
+    flex-wrap: wrap;   /* 画面が狭いときは折り返す */
+    justify-content: center;
+    gap: 20px;
+    padding: 20px;
+}
+
+.section {
+    flex: 1;           /* 幅を均等に */
+    min-width: 300px;  /* 狭くなりすぎないように */
+    max-width: 350px;  /* 広くなりすぎないように */
+    display: flex;
+    flex-direction: column;
+}
+
+/* チャットセクションだけは横いっぱいに使う */
+.chat-section {
+    flex: 1 1 100%;    /* 一番下に横長に配置 */
+    max-width: 1000px;
+}
+
+#chat-log {
+    height: 300px;     /* 高さを固定 */
+    background: #7494c0;
+    border-radius: 8px;
+    margin-bottom: 10px;
+}
         .control-row{ display:flex; justify-content:center; gap:8px; margin-bottom:10px; }
         input[type="number"], input[type="text"], input[type="password"] {
             padding:6px 12px; border-radius:999px; border:1px solid rgba(0,255,255,0.6);
@@ -264,14 +285,6 @@
     </div>
 </div>
 
-    <div class="section" style="grid-column: 1 / -1;">
-        <div class="section-title"><span class="label">Global Chat</span></div>
-        <div class="control-row">
-            <input type="text" id="chatInput" placeholder="MESSAGE..." style="width:70%;">
-            <button onclick="sendChat()">SEND</button>
-        </div>
-    </div>
-    
 </main>
 
 <div id="log" style="width:100%; padding:20px; font-size:0.8rem; color:rgba(0,255,255,0.4); border-top:1px solid rgba(0,255,255,0.1);"></div>
@@ -524,6 +537,7 @@ socket.on('chat_history', (msgs) => {
 </script>
 </body>
 </html>
+
 
 
 
