@@ -67,6 +67,19 @@ let bjGames = {};
 
 // --- 通信ロジック ---
 io.on('connection', (socket) => {
+    
+    // ログイン履歴取得用の関数（io.onの中で定義）
+    const sendChatHistory = async () => {
+        try {
+            const history = await Chat.find().sort({ time: -1 }).limit(30);
+            const chatHistory = await Promise.all(history.reverse().map(async (c) => {
+                const author = await User.findOne({ name: c.userName });
+                return { userName: c.userName, message: c.message, isDebtor: author ? author.bank < 0 : false };
+            }));
+            socket.emit('chat_history', chatHistory);
+        } catch (e) { console.error(e); }
+    };
+
     // ログイン
     socket.on('login_request', async (data) => {
         try {
@@ -80,6 +93,9 @@ io.on('connection', (socket) => {
             }
             socket.data.userName = name;
             socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
+            
+            // ログイン成功時に履歴を送る
+            sendChatHistory();
         } catch (e) { console.error(e); }
     });
 
@@ -143,45 +159,23 @@ io.on('connection', (socket) => {
         socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
     });
 
-socket.on('hl_guess', async (data) => {
-    // 1. データの存在チェック
-    if (!socket.data.hl) return;
-    
-    const hl = socket.data.hl;
-    const deck = hl.deck;
-    const nextCard = deck.pop();
-    const curVal = getHLValue(hl.current.rank);
-    const nextVal = getHLValue(nextCard.rank);
-    
-    // 2. 勝ち判定（同じ数字は勝ちにする）
-    const isWin = (data.choice === 'high' && nextVal >= curVal) || 
-                  (data.choice === 'low' && nextVal <= curVal);
-
-    if (isWin) {
-        // 【修正】配当を確実に2倍にする
-        hl.pending = Math.floor(hl.pending * 2); 
-        hl.count++;
-        hl.current = nextCard; // 現在のカードを更新
-
-        // 【最重要】フロントに win: true を送り、勝手に終了させない
-        socket.emit('hl_result', { 
-            win: true, // これがないとフロントが「負け」と勘違いして勝手に終わる
-            msg: `正解！配当は ${hl.pending} 枚！`, 
-            oldCard: nextCard, // 新しく引いたカードを表示させる
-            pending: hl.pending, // 最新の配当を渡す
-            count: hl.count 
-        });
-    } else {
-        // 負け：データを消去して終了通知
-        socket.data.hl = null;
-        socket.emit('hl_result', { 
-            win: false, 
-            msg: "残念、ハズレです...", 
-            oldCard: nextCard,
-            pending: 0 
-        });
-    }
-});
+    socket.on('hl_guess', async (data) => {
+        if (!socket.data.hl) return;
+        const hl = socket.data.hl;
+        const nextCard = hl.deck.pop();
+        const curVal = getHLValue(hl.current.rank);
+        const nextVal = getHLValue(nextCard.rank);
+        const isWin = (data.choice === 'high' && nextVal >= curVal) || (data.choice === 'low' && nextVal <= curVal);
+        if (isWin) {
+            hl.pending = Math.floor(hl.pending * 2); 
+            hl.count++;
+            hl.current = nextCard;
+            socket.emit('hl_result', { win: true, msg: `正解！配当は ${hl.pending} 枚！`, oldCard: nextCard, pending: hl.pending, count: hl.count });
+        } else {
+            socket.data.hl = null;
+            socket.emit('hl_result', { win: false, msg: "残念、ハズレです...", oldCard: nextCard, pending: 0 });
+        }
+    });
 
     socket.on('hl_collect', async () => {
         const hl = socket.data.hl;
@@ -192,19 +186,15 @@ socket.on('hl_guess', async (data) => {
         socket.data.hl = null;
         socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
     });
-});
 
-// --- チャット機能（ここを io.on の中に追加） ---
+    // チャットメッセージ受信
     socket.on('chat_message', async (data) => {
         if (!socket.data.userName) return;
-        // 文字列でもオブジェクトでも対応できるように
         const messageText = (typeof data === 'string') ? data : (data.message || data.msg);
         try {
             const user = await User.findOne({ name: socket.data.userName });
             const newChat = new Chat({ userName: socket.data.userName, message: messageText });
             await newChat.save();
-
-            // 全員に配信（借金中フラグ付き）
             io.emit('broadcast', {
                 userName: socket.data.userName,
                 message: messageText,
@@ -213,16 +203,6 @@ socket.on('hl_guess', async (data) => {
         } catch (err) { console.error("Chat Error:", err); }
     });
 
-    // ログイン成功時に履歴を送る（login_requestの最後の方に入れるのがベスト）
-    const sendChatHistory = async () => {
-        const history = await Chat.find().sort({ time: -1 }).limit(30);
-        const chatHistory = await Promise.all(history.reverse().map(async (c) => {
-            const author = await User.findOne({ name: c.userName });
-            return { userName: c.userName, message: c.message, isDebtor: author ? author.bank < 0 : false };
-        }));
-        socket.emit('chat_history', chatHistory);
-    };
+}); // ここが io.on の閉じカッコ。全ての通信はこの手前に入れる。
 
 server.listen(process.env.PORT || 3000, "0.0.0.0", () => console.log(`🚀 Ready`));
-
-
