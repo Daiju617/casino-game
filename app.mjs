@@ -143,19 +143,45 @@ io.on('connection', (socket) => {
         socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
     });
 
-    socket.on('hl_guess', ({ choice }) => {
-        const hl = socket.data.hl; if (!hl) return;
-        const next = hl.deck.pop();
-        const win = (choice === 'high' && getHLValue(next.rank) >= getHLValue(hl.current.rank)) ||
-                    (choice === 'low' && getHLValue(next.rank) <= getHLValue(hl.current.rank));
-        if (win) {
-            hl.pending *= 2; hl.count++; hl.current = next;
-            socket.emit('hl_result', { win: true, msg: `正解！配当:${hl.pending}`, oldCard: next, pending: hl.pending });
-        } else {
-            socket.data.hl = null;
-            socket.emit('hl_result', { win: false, msg: "没収", oldCard: next });
-        }
-    });
+socket.on('hl_guess', async (data) => {
+    // 1. データの存在チェック
+    if (!socket.data.hl) return;
+    
+    const hl = socket.data.hl;
+    const deck = hl.deck;
+    const nextCard = deck.pop();
+    const curVal = getHLValue(hl.current.rank);
+    const nextVal = getHLValue(nextCard.rank);
+    
+    // 2. 勝ち判定（同じ数字は勝ちにする）
+    const isWin = (data.choice === 'high' && nextVal >= curVal) || 
+                  (data.choice === 'low' && nextVal <= curVal);
+
+    if (isWin) {
+        // 【修正】配当を確実に2倍にする
+        hl.pending = Math.floor(hl.pending * 2); 
+        hl.count++;
+        hl.current = nextCard; // 現在のカードを更新
+
+        // 【最重要】フロントに win: true を送り、勝手に終了させない
+        socket.emit('hl_result', { 
+            win: true, // これがないとフロントが「負け」と勘違いして勝手に終わる
+            msg: `正解！配当は ${hl.pending} 枚！`, 
+            oldCard: nextCard, // 新しく引いたカードを表示させる
+            pending: hl.pending, // 最新の配当を渡す
+            count: hl.count 
+        });
+    } else {
+        // 負け：データを消去して終了通知
+        socket.data.hl = null;
+        socket.emit('hl_result', { 
+            win: false, 
+            msg: "残念、ハズレです...", 
+            oldCard: nextCard,
+            pending: 0 
+        });
+    }
+});
 
     socket.on('hl_collect', async () => {
         const hl = socket.data.hl;
@@ -169,3 +195,4 @@ io.on('connection', (socket) => {
 });
 
 server.listen(process.env.PORT || 3000, "0.0.0.0", () => console.log(`🚀 Ready`));
+
