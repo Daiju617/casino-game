@@ -244,35 +244,38 @@ socket.on('hl_guess', async (data) => {
     const curVal = getHLValue(socket.data.hlCurrent.rank);
     const nextVal = getHLValue(nextCard.rank);
     
-    // 勝ち判定（同じ数字はプレイヤーの勝ちにする優しい仕様）
-    let win = false;
-    if (data.choice === 'high' && nextVal >= curVal) win = true;
-    if (data.choice === 'low' && nextVal <= curVal) win = true;
+    // 勝ち判定
+    let win = (data.choice === 'high' && nextVal >= curVal) || 
+               (data.choice === 'low' && nextVal <= curVal);
 
     if (win) {
-        // 【修正】単純に現在の配当を2倍にする
+        // 配当を単純に2倍にする
         socket.data.hlPending = socket.data.hlPending * 2; 
-        
         socket.data.hlCount++;
         socket.data.hlCurrent = nextCard;
         
-        // 分かりやすく次の配当を通知
+        // 【重要】フロント側に「継続(win: true)」と「現在の配当」をしっかり伝える
         socket.emit('hl_result', { 
-            msg: `正解！次は ${socket.data.hlPending} 枚！`, 
-            oldCard: nextCard 
+            win: true, 
+            msg: `正解！配当：${socket.data.hlPending} 枚`, 
+            oldCard: nextCard,
+            pending: socket.data.hlPending,
+            count: socket.data.hlCount
         });
     } else {
-        // 負けたら全額没収
+        // 負けたらデータをリセット
         socket.data.hlPending = 0;
         socket.data.hlCount = 0;
         socket.data.hlCurrent = null;
+        
         socket.emit('hl_result', { 
-            msg: "残念！ハズレで全額没収です...", 
+            win: false, 
+            msg: "ハズレ！没収です", 
             oldCard: nextCard 
         });
     }
 });
-
+    
     socket.on('hl_collect', async () => {
         const user = await User.findOne({ name: socket.data.userName });
         if (!user || !socket.data.hlPending || socket.data.hlCount === 0) return socket.emit('login_error', "コレクトできません");
@@ -310,6 +313,7 @@ async function updateRanking() {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, "0.0.0.0", () => console.log(`🚀 Server running on port ${PORT}`));
+
 
 
 
