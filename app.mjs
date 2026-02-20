@@ -146,106 +146,117 @@ io.on('connection', (socket) => {
         delete bjGames[socket.id];
     });
 
-// 1. 開始処理
+// --- 【1】ハイアンドロー開始 ---
     socket.on('hl_start', async (data) => {
-        const user = await User.findOne({ name: socket.data.userName });
-        const bet = parseInt(data?.bet || 100);
-        if (!user || user.chips < bet) return socket.emit('login_error', "チップ不足");
+        try {
+            const user = await User.findOne({ name: socket.data.userName });
+            // フロントから送られてくる賭け金を確実に取得
+            const bet = parseInt(data?.bet || 100);
 
-        user.chips -= bet;
-        await user.save();
+            if (!user || user.chips < bet || bet <= 0) {
+                return socket.emit('login_error', "チップが足りないか、無効な金額です");
+            }
 
-        const deck = createDeck();
-        const card = deck.pop();
+            // チップをマイナス
+            user.chips -= bet;
+            await user.save();
 
-        // データをひとまとめにする
-        socket.data.hl = { 
-            deck: deck, 
-            current: card, 
-            pending: bet, // 最初は賭け金と同じ
-            count: 0 
-        };
+            const deck = createDeck();
+            const firstCard = deck.pop();
 
-        socket.emit('hl_setup', { currentCard: card });
-        socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
+            // サーバー側の変数名を固定（hlPending, hlCount, hlDeck）
+            socket.data.hlPending = bet; 
+            socket.data.hlCount = 0;
+            socket.data.hlDeck = deck;
+            socket.data.hlCurrent = firstCard;
+
+            // セットアップ。ここがズレるとDEALボタンから進まない
+            socket.emit('hl_setup', { currentCard: firstCard });
+            
+            // 所持金を同期
+            socket.emit('login_success', { 
+                name: user.name, 
+                chips: user.chips, 
+                bank: user.bank 
+            });
+        } catch (e) { console.error("HL Start Error:", e); }
     });
 
-    // 2. 予想処理（NaNと強制終了を徹底ガード）
-socket.on('hl_guess', async (data) => {
-        if (!socket.data.hl) return;
-        const hl = socket.data.hl;
-        
-        const nextCard = hl.deck.pop();
-        const curVal = getHLValue(hl.current.rank);
+    // --- 【2】ハイアンドロー予想 (ここを抜本的に修正) ---
+    socket.on('hl_guess', async (data) => {
+        // 変数チェック
+        if (!socket.data.hlCurrent || !socket.data.hlDeck) return;
+
+        const nextCard = socket.data.hlDeck.pop();
+        const curVal = getHLValue(socket.data.hlCurrent.rank);
         const nextVal = getHLValue(nextCard.rank);
-        
-        // 勝敗判定
+
+        // 判定（同じ数字はプレイヤー勝利）
         const isWin = (data.choice === 'high' && nextVal >= curVal) || 
                       (data.choice === 'low' && nextVal <= curVal);
 
         if (isWin) {
-            // 配当計算
-            hl.pending = Number(hl.pending) * 2; 
-            hl.count++;
-            hl.current = nextCard;
+            // 配当を2倍にする（NaN防止のため確実に数値計算）
+            socket.data.hlPending = Math.floor(socket.data.hlPending * 2);
+            socket.data.hlCount++;
+            socket.data.hlCurrent = nextCard;
 
-            // 【重要】フロントに「継続」を認識させるため、winをtrueにし、
-            // currentCardとして新しいカードを送り直す
-            socket.emit('hl_result', { 
-                win: true, 
-                msg: `正解！配当：${hl.pending}枚`, 
-                oldCard: nextCard,     // フロントによってはここで絵柄が変わる
-                currentCard: nextCard, // 追加：上書き用の最新カード
-                pending: hl.pending, 
-                count: hl.count 
+            // 【重要】win: true を送る。これでフロントは赤文字(終了)を出さず、続行モードになる
+            socket.emit('hl_result', {
+                win: true,
+                msg: `正解！配当: ${socket.data.hlPending}枚`,
+                oldCard: nextCard,     // 伏せられたカードを開くアニメーション用
+                currentCard: nextCard, // フロントの表示上書き用
+                pending: socket.data.hlPending,
+                count: socket.data.hlCount
             });
         } else {
-            // 負け：データを消して終了
-            socket.data.hl = null;
-            socket.emit('hl_result', { 
-                win: false, 
-                msg: "残念、ハズレです...", 
+            // ハズレ：全額没収してデータをクリア
+            socket.data.hlPending = 0;
+            socket.data.hlCurrent = null;
+            
+            // win: false を送ることで、フロントに「赤い文字での終了」を許可する
+            socket.emit('hl_result', {
+                win: false,
+                msg: "残念！ハズレで全額没収です...",
                 oldCard: nextCard,
-                pending: 0 
+                pending: 0
             });
         }
     });
-    
-    // 3. 回収処理
+
+    // --- 【3】ハイアンドロー回収 ---
     socket.on('hl_collect', async () => {
-        const hl = socket.data.hl;
-        if (!hl || hl.count === 0) return;
+        if (!socket.data.hlPending || socket.data.hlCount === 0) return;
 
-        const user = await User.findOne({ name: socket.data.userName });
-        if (user) {
-            user.chips += Number(hl.pending);
-            await user.save();
-            
-            socket.emit('hl_result', { win: false, msg: `${hl.pending}枚回収しました！`, newChips: user.chips });
-            socket.data.hl = null;
-            socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
-        }
-    });
-
-    // チャットメッセージ受信
-    socket.on('chat_message', async (data) => {
-        if (!socket.data.userName) return;
-        const messageText = (typeof data === 'string') ? data : (data.message || data.msg);
         try {
             const user = await User.findOne({ name: socket.data.userName });
-            const newChat = new Chat({ userName: socket.data.userName, message: messageText });
-            await newChat.save();
-            io.emit('broadcast', {
-                userName: socket.data.userName,
-                message: messageText,
-                isDebtor: user ? user.bank < 0 : false
-            });
-        } catch (err) { console.error("Chat Error:", err); }
+            if (user) {
+                const winAmount = socket.data.hlPending;
+                user.chips += winAmount;
+                await user.save();
+
+                // 回収成功：フロントをリセットさせるために win: false を送る
+                socket.emit('hl_result', { 
+                    win: false, 
+                    msg: `${winAmount}枚回収しました！`,
+                    newChips: user.chips 
+                });
+
+                // 状態クリア
+                socket.data.hlPending = 0;
+                socket.data.hlCurrent = null;
+
+                // 所持金更新
+                socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
+            }
+        } catch (e) { console.error("HL Collect Error:", e); }
     });
 
 }); // ここが io.on の閉じカッコ。全ての通信はこの手前に入れる。
 
 server.listen(process.env.PORT || 3000, "0.0.0.0", () => console.log(`🚀 Ready`));
+
 
 
 
