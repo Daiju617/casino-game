@@ -634,19 +634,27 @@ function collectHL() {
     document.getElementById('hlActions').style.display = 'none';
 }
 
+// hl_setup（最初の1枚）が届いた時
 socket.on('hl_setup', d => {
     renderCards('hlCurrent', [d.currentCard]); 
     document.getElementById('hlInit').style.display = 'none';
     document.getElementById('hlActions').style.display = 'flex';
     document.getElementById('hlRes').textContent = "HIGH or LOW?";
+    
+    // ✅ 最初の1枚の時はコレクトボタンを隠す（または無効化）
+    document.querySelector("button[onclick='collectHL()']").style.opacity = "0.3";
+    document.querySelector("button[onclick='collectHL()']").disabled = true;
 });
 
+// hl_result（判定結果）が届いた時
 socket.on('hl_result', d => {
-    renderCards('hlCurrent', [d.oldCard]); 
-    const res = document.getElementById('hlRes');
-    res.textContent = d.msg;
-    res.className = "result " + (d.msg.includes("WIN") ? "win" : "lose");
-    updateChips(d.newChips);
+    // ... 既存の処理 ...
+    
+    // ✅ 勝った時だけコレクトボタンを有効化する
+    if (d.msg.includes("WIN")) {
+        document.querySelector("button[onclick='collectHL()']").style.opacity = "1";
+        document.querySelector("button[onclick='collectHL()']").disabled = false;
+    }
 });
 
 // 7. ランキング（HTMLの id="rList" に合わせました）
@@ -702,6 +710,7 @@ socket.on('chat_history', (msgs) => {
 </script>
 </body>
 </html>
+
 
 
 
