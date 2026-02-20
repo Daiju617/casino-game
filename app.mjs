@@ -207,31 +207,42 @@ socket.on('exchange_request', async (data) => {
         handleBJEnd(socket, g, win, msg);
     });
 
-    // ハイアンドロー
-    socket.on('hl_start', (data) => {
-        const deck = createDeck();
-        hlCurrentCard[socket.id] = deck.pop();
-        socket.emit('hl_setup', { currentCard: hlCurrentCard[socket.id] });
-    });
+// ハイアンドローのコレクト処理
+socket.on('hl_collect', async () => {
+    try {
+        const user = await User.findOne({ name: socket.data.userName });
+        if (!user || !socket.data.hlPending) return;
 
-    socket.on('hl_guess', async (data) => {
-        try {
-            const user = await User.findOne({ name: socket.data.userName });
-            if (!user || user.chips < data.bet) return;
-            const nextCard = createDeck().pop();
-            const ranks = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
-            const curIdx = ranks.indexOf(hlCurrentCard[socket.id].rank);
-            const nxtIdx = ranks.indexOf(nextCard.rank);
-            let win = (nxtIdx === curIdx) ? data.bet : (((data.choice==='high'&&nxtIdx>curIdx)||(data.choice==='low'&&nxtIdx<curIdx)) ? data.bet*2 : 0);
-            
-            user.chips = user.chips - data.bet + win;
-            if (user.chips < 0) user.chips = 0;
-            await user.save();
-            hlCurrentCard[socket.id] = nextCard;
-            socket.emit('hl_result', { oldCard: nextCard, msg: win>data.bet?"WIN!":(win===0?"LOSE":"PUSH"), newChips: user.chips });
-            updateRanking();
-        } catch (err) { console.error(err); }
-    });
+        // ✅ 修正ポイント：まだ1回もHigh/Lowを選んでいない場合はコレクト不可
+        if (socket.data.hlCount === 0) {
+            return socket.emit('login_error', "カードを引く前にコレクトはできません！");
+        }
+
+        // 勝利金の確定処理（既存のコード）
+        user.chips += socket.data.hlPending;
+        await user.save();
+
+        const reward = socket.data.hlPending;
+        socket.data.hlPending = 0;
+        socket.data.hlCount = 0; // カウントリセット
+
+        socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
+        socket.emit('hl_result', { msg: `安全に ${reward} 枚回収しました！`, newChips: user.chips });
+        
+    } catch (err) { console.error(err); }
+});
+
+// hl_start（最初の1枚を配る）の時にカウントを0にする
+socket.on('hl_start', () => {
+    // ... カードを配る処理 ...
+    socket.data.hlCount = 0; // 追加
+});
+
+// hl_guess（HighかLowを選んだ）の時にカウントを増やす
+socket.on('hl_guess', () => {
+    // ... 正解判定 ...
+    socket.data.hlCount = (socket.data.hlCount || 0) + 1;
+});
 
     socket.on('disconnect', () => {
         delete bjGames[socket.id];
@@ -264,4 +275,5 @@ async function updateRanking() {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, "0.0.0.0", () => console.log(`🚀 Server running on port ${PORT}`));
+
 
