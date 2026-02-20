@@ -218,23 +218,30 @@ io.on('connection', (socket) => {
         handleBJEnd(socket, g, win, msg);
     });
 
-    // ハイアンドロー
-    socket.on('hl_start', async (data) => {
-        const user = await User.findOne({ name: socket.data.userName });
-        const bet = parseInt(data?.bet) || 100;
-        if (!user || user.chips < bet) return socket.emit('login_error', "チップが足りません");
-        user.chips -= bet;
-        await user.save();
-        const deck = createDeck();
-        const firstCard = deck.pop();
-        socket.data.hlDeck = deck;
-        socket.data.hlCurrent = firstCard;
-        socket.data.hlPending = bet;
-        socket.data.hlCount = 0;
-        socket.emit('hl_setup', { currentCard: firstCard });
-        socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
-    });
+socket.on('hl_start', async (data) => {
+    const user = await User.findOne({ name: socket.data.userName });
+    const bet = parseInt(data?.bet); // フロントから送られてきた賭け金を数値化
+    
+    if (!user || user.chips < bet || bet <= 0) {
+        return socket.emit('login_error', "チップが足りないか、金額が正しくありません");
+    }
 
+    // チップを引く
+    user.chips -= bet;
+    await user.save();
+
+    const deck = createDeck();
+    const firstCard = deck.pop();
+    
+    socket.data.hlDeck = deck;
+    socket.data.hlCurrent = firstCard;
+    socket.data.hlPending = bet; // 【修正】100固定ではなく、賭けた金額(bet)をそのままセット！
+    socket.data.hlCount = 0;
+
+    socket.emit('hl_setup', { currentCard: firstCard });
+    socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
+});
+    
 // HL予想
 socket.on('hl_guess', async (data) => {
     if (!socket.data.hlCurrent) return;
@@ -313,6 +320,7 @@ async function updateRanking() {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, "0.0.0.0", () => console.log(`🚀 Server running on port ${PORT}`));
+
 
 
 
