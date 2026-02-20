@@ -620,12 +620,13 @@ socket.on('bj_result', d => {
 
 // 6. ハイアンドロー（HTMLの id="hlCurrent", id="hlNext" に合わせました）
 function startHL() {
-    socket.emit('hl_start');
+    const betVal = parseInt(document.getElementById('hlBet').value) || 100;
+    socket.emit('hl_start', { bet: betVal }); 
 }
 
+// guessHL をこれに書き換え（betを送る必要はないのでシンプルにする）
 function guessHL(choice) {
-    const bet = parseInt(document.getElementById('hlBet').value) || 100;
-    socket.emit('hl_guess', { choice: choice, bet: bet });
+    socket.emit('hl_guess', { choice: choice });
 }
 
 function collectHL() {
@@ -731,6 +732,7 @@ socket.on('chat_history', (msgs) => {
 </script>
 </body>
 </html>
+
 
 
 
