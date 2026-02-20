@@ -646,14 +646,33 @@ socket.on('hl_setup', d => {
     document.querySelector("button[onclick='collectHL()']").disabled = true;
 });
 
-// hl_result（判定結果）が届いた時
 socket.on('hl_result', d => {
-    // ... 既存の処理 ...
-    
-    // ✅ 勝った時だけコレクトボタンを有効化する
+    // 1枚前のカードを表示
+    renderCards('hlCurrent', [d.oldCard]); 
+    const res = document.getElementById('hlRes');
+    res.textContent = d.msg;
+    res.className = "result " + (d.msg.includes("WIN") ? "win" : "lose");
+    updateChips(d.newChips);
+
+    // ✅ ここが「2」の内容です！
     if (d.msg.includes("WIN")) {
-        document.querySelector("button[onclick='collectHL()']").style.opacity = "1";
-        document.querySelector("button[onclick='collectHL()']").disabled = false;
+        // 勝った時は、コレクトボタンを有効化して「続行」させる
+        const collectBtn = document.querySelector("button[onclick='collectHL()']");
+        if(collectBtn) {
+            collectBtn.style.opacity = "1";
+            collectBtn.disabled = false;
+        }
+    } else {
+        // 負けた時、またはコレクト（回収）成功メッセージが届いた時は、DEALに戻す
+        document.getElementById('hlInit').style.display = 'flex';
+        document.getElementById('hlActions').style.display = 'none';
+        
+        // コレクトボタンを初期状態（無効）に戻す
+        const collectBtn = document.querySelector("button[onclick='collectHL()']");
+        if(collectBtn) {
+            collectBtn.style.opacity = "0.3";
+            collectBtn.disabled = true;
+        }
     }
 });
 
@@ -710,6 +729,7 @@ socket.on('chat_history', (msgs) => {
 </script>
 </body>
 </html>
+
 
 
 
