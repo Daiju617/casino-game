@@ -325,17 +325,6 @@ socket.on('hl_guess', async (data) => {
     }
 });
 
-async function handleBJEnd(socket, g, win, msg) {
-    const user = await User.findOne({ name: socket.data.userName });
-    if (!user) return;
-    user.chips = user.chips - g.bet + win;
-    if (user.chips < 0) user.chips = 0;
-    await user.save();
-    socket.emit('bj_result', { player: g.p, dealer: g.d, msg, newChips: user.chips });
-    delete bjGames[socket.id];
-    updateRanking();
-}
-
 async function updateRanking() {
     try {
         const users = await User.find().sort({ chips: -1 }).limit(10);
@@ -350,6 +339,7 @@ async function updateRanking() {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, "0.0.0.0", () => console.log(`🚀 Server running on port ${PORT}`));
+
 
 
 
