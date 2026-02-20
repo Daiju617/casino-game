@@ -235,25 +235,43 @@ io.on('connection', (socket) => {
         socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
     });
 
-    socket.on('hl_guess', async (data) => {
-        if (!socket.data.hlCurrent) return;
-        const deck = socket.data.hlDeck;
-        const nextCard = deck.pop();
-        const curVal = getHLValue(socket.data.hlCurrent.rank);
-        const nextVal = getHLValue(nextCard.rank);
-        let win = (data.choice === 'high' && nextVal >= curVal) || (data.choice === 'low' && nextVal <= curVal);
-        if (win) {
-            socket.data.hlPending = Math.floor(socket.data.hlPending * 1.9);
-            socket.data.hlCount++;
-            socket.data.hlCurrent = nextCard;
-            socket.emit('hl_result', { msg: `WIN! 次は ${socket.data.hlPending}枚！`, oldCard: nextCard });
-        } else {
-            socket.data.hlPending = 0;
-            socket.data.hlCount = 0;
-            socket.data.hlCurrent = null;
-            socket.emit('hl_result', { msg: "LOSE... 全額没収です", oldCard: nextCard });
-        }
-    });
+// HL予想
+socket.on('hl_guess', async (data) => {
+    if (!socket.data.hlCurrent) return;
+    
+    const deck = socket.data.hlDeck;
+    const nextCard = deck.pop();
+    const curVal = getHLValue(socket.data.hlCurrent.rank);
+    const nextVal = getHLValue(nextCard.rank);
+    
+    // 勝ち判定（同じ数字はプレイヤーの勝ちにする優しい仕様）
+    let win = false;
+    if (data.choice === 'high' && nextVal >= curVal) win = true;
+    if (data.choice === 'low' && nextVal <= curVal) win = true;
+
+    if (win) {
+        // 【修正】単純に現在の配当を2倍にする
+        socket.data.hlPending = socket.data.hlPending * 2; 
+        
+        socket.data.hlCount++;
+        socket.data.hlCurrent = nextCard;
+        
+        // 分かりやすく次の配当を通知
+        socket.emit('hl_result', { 
+            msg: `正解！次は ${socket.data.hlPending} 枚！`, 
+            oldCard: nextCard 
+        });
+    } else {
+        // 負けたら全額没収
+        socket.data.hlPending = 0;
+        socket.data.hlCount = 0;
+        socket.data.hlCurrent = null;
+        socket.emit('hl_result', { 
+            msg: "残念！ハズレで全額没収です...", 
+            oldCard: nextCard 
+        });
+    }
+});
 
     socket.on('hl_collect', async () => {
         const user = await User.findOne({ name: socket.data.userName });
@@ -292,6 +310,7 @@ async function updateRanking() {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, "0.0.0.0", () => console.log(`🚀 Server running on port ${PORT}`));
+
 
 
 
