@@ -183,42 +183,37 @@ io.on('connection', (socket) => {
     });
 
     // --- 【2】ハイアンドロー予想 (ここを抜本的に修正) ---
-    socket.on('hl_guess', async (data) => {
-        // 変数チェック
+socket.on('hl_guess', async (data) => {
         if (!socket.data.hlCurrent || !socket.data.hlDeck) return;
 
         const nextCard = socket.data.hlDeck.pop();
         const curVal = getHLValue(socket.data.hlCurrent.rank);
         const nextVal = getHLValue(nextCard.rank);
 
-        // 判定（同じ数字はプレイヤー勝利）
         const isWin = (data.choice === 'high' && nextVal >= curVal) || 
                       (data.choice === 'low' && nextVal <= curVal);
 
         if (isWin) {
-            // 配当を2倍にする（NaN防止のため確実に数値計算）
             socket.data.hlPending = Math.floor(socket.data.hlPending * 2);
             socket.data.hlCount++;
             socket.data.hlCurrent = nextCard;
 
-            // 【重要】win: true を送る。これでフロントは赤文字(終了)を出さず、続行モードになる
             socket.emit('hl_result', {
-                win: true,
-                msg: `正解！配当: ${socket.data.hlPending}枚`,
-                oldCard: nextCard,     // 伏せられたカードを開くアニメーション用
-                currentCard: nextCard, // フロントの表示上書き用
+                win: true, 
+                // 【重要】フロントの判定に合わせて "WIN" という文字を必ず含める
+                msg: `WIN! 正解！配当: ${socket.data.hlPending}枚`, 
+                oldCard: nextCard,
+                currentCard: nextCard,
                 pending: socket.data.hlPending,
-                count: socket.data.hlCount
+                count: socket.data.hlCount,
+                newChips: undefined // 途中でチップを更新させない
             });
         } else {
-            // ハズレ：全額没収してデータをクリア
             socket.data.hlPending = 0;
             socket.data.hlCurrent = null;
-            
-            // win: false を送ることで、フロントに「赤い文字での終了」を許可する
             socket.emit('hl_result', {
                 win: false,
-                msg: "残念！ハズレで全額没収です...",
+                msg: "LOSE... 残念、ハズレです", 
                 oldCard: nextCard,
                 pending: 0
             });
@@ -256,6 +251,7 @@ io.on('connection', (socket) => {
 }); // ここが io.on の閉じカッコ。全ての通信はこの手前に入れる。
 
 server.listen(process.env.PORT || 3000, "0.0.0.0", () => console.log(`🚀 Ready`));
+
 
 
 
