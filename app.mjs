@@ -171,42 +171,42 @@ io.on('connection', (socket) => {
     });
 
     // 2. 予想処理（NaNと強制終了を徹底ガード）
-    socket.on('hl_guess', async (data) => {
-        if (!socket.data.hl) return;
-        const hl = socket.data.hl;
-        
-        const nextCard = hl.deck.pop();
-        const curVal = getHLValue(hl.current.rank);
-        const nextVal = getHLValue(nextCard.rank);
-        
-        const isWin = (data.choice === 'high' && nextVal >= curVal) || 
-                      (data.choice === 'low' && nextVal <= curVal);
+socket.on('hl_guess', async (data) => {
+    // 変数名が hl ではなく hlCurrent などになっている可能性を考慮
+    const hl = socket.data.hl; 
+    if (!hl) return;
 
-        if (isWin) {
-            // 配当計算：確実に数字として計算
-            hl.pending = Number(hl.pending) * 2; 
-            hl.count++;
-            hl.current = nextCard;
+    const nextCard = hl.deck.pop();
+    const curVal = getHLValue(hl.current.rank);
+    const nextVal = getHLValue(nextCard.rank);
 
-            // フロントに送るデータを「これでもか」と盛り付ける
-            socket.emit('hl_result', { 
-                win: true,          // フロントの「終了」を阻止
-                success: true,
-                msg: `正解！配当：${hl.pending}枚`, 
-                oldCard: nextCard, 
-                pending: hl.pending, 
-                count: hl.count 
-            });
-        } else {
-            socket.data.hl = null;
-            socket.emit('hl_result', { 
-                win: false,         // ここで初めて終了させる
-                msg: "残念、ハズレです...", 
-                oldCard: nextCard, 
-                pending: 0 
-            });
-        }
-    });
+    const isWin = (data.choice === 'high' && nextVal >= curVal) || 
+                  (data.choice === 'low' && nextVal <= curVal);
+
+    if (isWin) {
+        // 配当を2倍にする
+        hl.pending = Number(hl.pending) * 2;
+        hl.count++;
+        hl.current = nextCard;
+
+        // 【ここを修正】フロントが「継続」を判断するためのデータ
+        socket.emit('hl_result', { 
+            win: true,           // これが true でないとフロントが赤文字を出して終了させる
+            msg: `正解！配当：${hl.pending}枚`, 
+            oldCard: nextCard,    // これで伏せカードを開かせる
+            pending: hl.pending,  // 配当を表示させる
+            count: hl.count      // 連勝数を伝える
+        });
+    } else {
+        // ハズレの時だけ win: false を送り、データを消す
+        socket.data.hl = null;
+        socket.emit('hl_result', { 
+            win: false, 
+            msg: "残念、ハズレです...", 
+            oldCard: nextCard 
+        });
+    }
+});
 
     // 3. 回収処理
     socket.on('hl_collect', async () => {
@@ -243,5 +243,6 @@ io.on('connection', (socket) => {
 }); // ここが io.on の閉じカッコ。全ての通信はこの手前に入れる。
 
 server.listen(process.env.PORT || 3000, "0.0.0.0", () => console.log(`🚀 Ready`));
+
 
 
