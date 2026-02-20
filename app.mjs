@@ -194,5 +194,35 @@ socket.on('hl_guess', async (data) => {
     });
 });
 
+// --- チャット機能（ここを io.on の中に追加） ---
+    socket.on('chat_message', async (data) => {
+        if (!socket.data.userName) return;
+        // 文字列でもオブジェクトでも対応できるように
+        const messageText = (typeof data === 'string') ? data : (data.message || data.msg);
+        try {
+            const user = await User.findOne({ name: socket.data.userName });
+            const newChat = new Chat({ userName: socket.data.userName, message: messageText });
+            await newChat.save();
+
+            // 全員に配信（借金中フラグ付き）
+            io.emit('broadcast', {
+                userName: socket.data.userName,
+                message: messageText,
+                isDebtor: user ? user.bank < 0 : false
+            });
+        } catch (err) { console.error("Chat Error:", err); }
+    });
+
+    // ログイン成功時に履歴を送る（login_requestの最後の方に入れるのがベスト）
+    const sendChatHistory = async () => {
+        const history = await Chat.find().sort({ time: -1 }).limit(30);
+        const chatHistory = await Promise.all(history.reverse().map(async (c) => {
+            const author = await User.findOne({ name: c.userName });
+            return { userName: c.userName, message: c.message, isDebtor: author ? author.bank < 0 : false };
+        }));
+        socket.emit('chat_history', chatHistory);
+    };
+
 server.listen(process.env.PORT || 3000, "0.0.0.0", () => console.log(`🚀 Ready`));
+
 
