@@ -147,9 +147,11 @@ io.on('connection', (socket) => {
     });
 
 // --- 【1】ハイアンドロー開始 ---
-socket.on('hl_start', async (data) => {
+// --- 【1】ハイアンドロー開始 ---
+    socket.on('hl_start', async (data) => {
         try {
             const user = await User.findOne({ name: socket.data.userName });
+            // ここで入力された bet (例: 10000) を取得
             const bet = parseInt(data?.bet || 100);
 
             if (!user || user.chips < bet || bet <= 0) {
@@ -162,8 +164,8 @@ socket.on('hl_start', async (data) => {
             const deck = createDeck();
             const firstCard = deck.pop();
 
-            // 初期値をセット
-            socket.data.hlPending = bet; // ここを bet に固定
+            // 【超重要】ここで入力された bet を pending に直接叩き込む
+            socket.data.hlPending = bet; 
             socket.data.hlCount = 0;
             socket.data.hlDeck = deck;
             socket.data.hlCurrent = firstCard;
@@ -173,6 +175,7 @@ socket.on('hl_start', async (data) => {
         } catch (e) { console.error(e); }
     });
 
+    // --- 【2】ハイアンドロー予想 ---
     socket.on('hl_guess', async (data) => {
         if (!socket.data.hlCurrent || !socket.data.hlDeck) return;
 
@@ -184,7 +187,8 @@ socket.on('hl_start', async (data) => {
                       (data.choice === 'low' && nextVal <= curVal);
 
         if (isWin) {
-            // ★配当を「現在の配当 × 2」にする（これで倍々になる）
+            // 【修正】現在の pending (最初は賭け金そのもの) を2倍にする
+            // 10000 賭けてたら、1回正解で 10000 * 2 = 20000 になる
             socket.data.hlPending = Math.floor(Number(socket.data.hlPending) * 2);
             socket.data.hlCount++;
             socket.data.hlCurrent = nextCard;
@@ -192,7 +196,7 @@ socket.on('hl_start', async (data) => {
             socket.emit('hl_result', {
                 win: true, 
                 msg: `WIN! 正解！配当: ${socket.data.hlPending}枚`, 
-                oldCard: nextCard, // rank落ち対策で必ず送る
+                oldCard: nextCard,
                 pending: socket.data.hlPending,
                 count: socket.data.hlCount
             });
@@ -203,7 +207,7 @@ socket.on('hl_start', async (data) => {
             socket.emit('hl_result', {
                 win: false,
                 msg: "LOSE... ハズレです", 
-                oldCard: lostCard, // エラー回避のため負けてもカード情報を送る
+                oldCard: lostCard,
                 pending: 0
             });
         }
@@ -240,6 +244,7 @@ socket.on('hl_start', async (data) => {
 }); // ここが io.on の閉じカッコ。全ての通信はこの手前に入れる。
 
 server.listen(process.env.PORT || 3000, "0.0.0.0", () => console.log(`🚀 Ready`));
+
 
 
 
