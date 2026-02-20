@@ -218,28 +218,44 @@ io.on('connection', (socket) => {
         handleBJEnd(socket, g, win, msg);
     });
 
+// HL開始（DEALボタンが反応するように修正）
 socket.on('hl_start', async (data) => {
-    const user = await User.findOne({ name: socket.data.userName });
-    const bet = parseInt(data?.bet); // フロントから送られてきた賭け金を数値化
-    
-    if (!user || user.chips < bet || bet <= 0) {
-        return socket.emit('login_error', "チップが足りないか、金額が正しくありません");
+    try {
+        const user = await User.findOne({ name: socket.data.userName });
+        // data.bet が無い場合や、文字で送られてきた場合を考慮してパース
+        const bet = parseInt(data?.bet || data?.amount); 
+        
+        if (!user || user.chips < bet || isNaN(bet) || bet <= 0) {
+            return socket.emit('login_error', "チップが足りないか、金額が不正です");
+        }
+
+        // チップを引く
+        user.chips -= bet;
+        await user.save();
+
+        const deck = createDeck();
+        const firstCard = deck.pop();
+        
+        // サーバー側の状態を保存
+        socket.data.hlDeck = deck;
+        socket.data.hlCurrent = firstCard;
+        socket.data.hlPending = bet; 
+        socket.data.hlCount = 0;
+
+        // 【修正ポイント】フロント側が待っている可能性のあるイベント名をすべて送る
+        socket.emit('hl_setup', { currentCard: firstCard, bet: bet });
+        socket.emit('hl_start_success', { currentCard: firstCard }); 
+        
+        // 所持金の更新通知
+        socket.emit('login_success', { 
+            name: user.name, 
+            chips: user.chips, 
+            bank: user.bank 
+        });
+
+    } catch (err) {
+        console.error("HL Start Error:", err);
     }
-
-    // チップを引く
-    user.chips -= bet;
-    await user.save();
-
-    const deck = createDeck();
-    const firstCard = deck.pop();
-    
-    socket.data.hlDeck = deck;
-    socket.data.hlCurrent = firstCard;
-    socket.data.hlPending = bet; // 【修正】100固定ではなく、賭けた金額(bet)をそのままセット！
-    socket.data.hlCount = 0;
-
-    socket.emit('hl_setup', { currentCard: firstCard });
-    socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
 });
     
 // HL予想
@@ -320,6 +336,7 @@ async function updateRanking() {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, "0.0.0.0", () => console.log(`🚀 Server running on port ${PORT}`));
+
 
 
 
