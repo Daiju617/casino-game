@@ -146,22 +146,35 @@ io.on('connection', (socket) => {
         delete bjGames[socket.id];
     });
 
-    // ハイアンドロー (修正版)
+// 1. 開始処理
     socket.on('hl_start', async (data) => {
         const user = await User.findOne({ name: socket.data.userName });
         const bet = parseInt(data?.bet || 100);
         if (!user || user.chips < bet) return socket.emit('login_error', "チップ不足");
-        user.chips -= bet; await user.save();
+
+        user.chips -= bet;
+        await user.save();
+
         const deck = createDeck();
         const card = deck.pop();
-        socket.data.hl = { deck, current: card, pending: bet, count: 0 };
+
+        // データをひとまとめにする
+        socket.data.hl = { 
+            deck: deck, 
+            current: card, 
+            pending: bet, // 最初は賭け金と同じ
+            count: 0 
+        };
+
         socket.emit('hl_setup', { currentCard: card });
         socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
     });
 
-socket.on('hl_guess', async (data) => {
+    // 2. 予想処理（NaNと強制終了を徹底ガード）
+    socket.on('hl_guess', async (data) => {
         if (!socket.data.hl) return;
         const hl = socket.data.hl;
+        
         const nextCard = hl.deck.pop();
         const curVal = getHLValue(hl.current.rank);
         const nextVal = getHLValue(nextCard.rank);
@@ -170,31 +183,24 @@ socket.on('hl_guess', async (data) => {
                       (data.choice === 'low' && nextVal <= curVal);
 
         if (isWin) {
-            // 配当計算
-            if (hl.count === 0) {
-                hl.pending = hl.bet * 2;
-            } else {
-                hl.pending = hl.pending * 2;
-            }
+            // 配当計算：確実に数字として計算
+            hl.pending = Number(hl.pending) * 2; 
             hl.count++;
             hl.current = nextCard;
 
-            // 【ここが重要！】フロント側が「終了」と勘違いしないためのフラグを全部盛り
+            // フロントに送るデータを「これでもか」と盛り付ける
             socket.emit('hl_result', { 
-                win: true,           // 勝利フラグ
-                success: true,       // 念のため
-                status: 'continue',   // 継続中であることを明示
-                msg: `正解！配当：${hl.pending}`, 
+                win: true,          // フロントの「終了」を阻止
+                success: true,
+                msg: `正解！配当：${hl.pending}枚`, 
                 oldCard: nextCard, 
                 pending: hl.pending, 
                 count: hl.count 
             });
         } else {
-            // 負けの時は win: false を送る
             socket.data.hl = null;
             socket.emit('hl_result', { 
-                win: false, 
-                success: false,
+                win: false,         // ここで初めて終了させる
                 msg: "残念、ハズレです...", 
                 oldCard: nextCard, 
                 pending: 0 
@@ -202,14 +208,20 @@ socket.on('hl_guess', async (data) => {
         }
     });
 
+    // 3. 回収処理
     socket.on('hl_collect', async () => {
         const hl = socket.data.hl;
         if (!hl || hl.count === 0) return;
+
         const user = await User.findOne({ name: socket.data.userName });
-        user.chips += hl.pending; await user.save();
-        socket.emit('hl_result', { msg: `${hl.pending}枚回収！`, newChips: user.chips });
-        socket.data.hl = null;
-        socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
+        if (user) {
+            user.chips += Number(hl.pending);
+            await user.save();
+            
+            socket.emit('hl_result', { win: false, msg: `${hl.pending}枚回収しました！`, newChips: user.chips });
+            socket.data.hl = null;
+            socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
+        }
     });
 
     // チャットメッセージ受信
@@ -231,4 +243,5 @@ socket.on('hl_guess', async (data) => {
 }); // ここが io.on の閉じカッコ。全ての通信はこの手前に入れる。
 
 server.listen(process.env.PORT || 3000, "0.0.0.0", () => console.log(`🚀 Ready`));
+
 
