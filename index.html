@@ -651,29 +651,31 @@ socket.on('hl_result', d => {
     renderCards('hlCurrent', [d.oldCard]); 
     const res = document.getElementById('hlRes');
     res.textContent = d.msg;
-    res.className = "result " + (d.msg.includes("WIN") ? "win" : "lose");
-    updateChips(d.newChips);
-
-    // ✅ ここが「2」の内容です！
-    if (d.msg.includes("WIN")) {
+    
+    // 【修正】文字判定ではなく、d.win (true/false) で色と継続を判定する
+    if (d.win === true) {
+        res.className = "result win"; // 緑/青文字にする
         // 勝った時は、コレクトボタンを有効化して「続行」させる
         const collectBtn = document.querySelector("button[onclick='collectHL()']");
         if(collectBtn) {
             collectBtn.style.opacity = "1";
             collectBtn.disabled = false;
         }
+        // 継続中なのでボタンは hlActions のまま（何もしない）
     } else {
-        // 負けた時、またはコレクト（回収）成功メッセージが届いた時は、DEALに戻す
+        res.className = "result lose"; // 赤文字にする
+        // 負けた時、またはコレクト（回収）成功時は、DEALに戻す
         document.getElementById('hlInit').style.display = 'flex';
         document.getElementById('hlActions').style.display = 'none';
         
-        // コレクトボタンを初期状態（無効）に戻す
         const collectBtn = document.querySelector("button[onclick='collectHL()']");
         if(collectBtn) {
             collectBtn.style.opacity = "0.3";
             collectBtn.disabled = true;
         }
     }
+
+    if(d.newChips !== undefined) updateChips(d.newChips);
 });
 
 // 7. ランキング（HTMLの id="rList" に合わせました）
@@ -729,6 +731,7 @@ socket.on('chat_history', (msgs) => {
 </script>
 </body>
 </html>
+
 
 
 
