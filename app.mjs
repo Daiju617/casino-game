@@ -10,9 +10,7 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const server = createServer(app);
-const io = new Server(server, {
-    cors: { origin: "*" }
-});
+const io = new Server(server, { cors: { origin: "*" } });
 
 // --- データベース接続 ---
 const MONGO_URI = process.env.MONGO_URI; 
@@ -20,22 +18,20 @@ mongoose.connect(MONGO_URI)
     .then(() => console.log("✅ MongoDB接続成功"))
     .catch(err => console.error("❌ MongoDB接続エラー:", err.message));
 
-const userSchema = new mongoose.Schema({
+const User = mongoose.model('User', new mongoose.Schema({
     name: { type: String, required: true },
     password: { type: String, required: true },
     chips: { type: Number, default: 1000 },
     bank: { type: Number, default: 0 },
     ip: { type: String },
     lastLogin: { type: Date, default: Date.now }
-});
-const User = mongoose.model('User', userSchema);
+}));
 
-const chatSchema = new mongoose.Schema({
+const Chat = mongoose.model('Chat', new mongoose.Schema({
     userName: String,
     message: String,
     time: { type: Date, default: Date.now }
-});
-const Chat = mongoose.model('Chat', chatSchema);
+}));
 
 app.use(express.static(__dirname));
 
@@ -67,145 +63,59 @@ const getHLValue = (rank) => {
     return parseInt(rank);
 };
 
-// 状態管理
-let bjGames = {}; 
+let bjGames = {};
 
 // --- 通信ロジック ---
 io.on('connection', (socket) => {
-    console.log('ユーザーが接続しました');
-
-    // ATM
-    socket.on('atm_request', async (data) => {
-        const { amount, type } = data;
-        try {
-            const user = await User.findOne({ name: socket.data.userName });
-            if (!user || amount <= 0) return;
-            if (type === 'deposit') {
-                if (user.chips < amount) return socket.emit('login_error', "手持ちが足りません");
-                user.chips -= amount;
-                user.bank += amount;
-            } else if (type === 'withdraw') {
-                if (user.bank - amount < -10000) return socket.emit('login_error', "融資限度額（1万枚）を超えています");
-                user.chips += amount;
-                user.bank -= amount;
-            }
-            await user.save();
-            socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
-            updateRanking();
-        } catch (err) { console.error(err); }
-    });
-
-    // ログイン・登録
+    // ログイン
     socket.on('login_request', async (data) => {
-        const { name, password } = data;
-        const clientIp = socket.handshake.address;
         try {
-            let user = await User.findOne({ name: name });
+            const { name, password } = data;
+            let user = await User.findOne({ name });
             if (!user) {
-                const ipExists = await User.findOne({ ip: clientIp });
-                if (ipExists) return socket.emit('login_error', "この端末からは1つしかアカウントを作れません");
-                user = new User({ name: name, password: password, ip: clientIp, chips: 1000 });
+                user = new User({ name, password, ip: socket.handshake.address });
                 await user.save();
-            } else {
-                if (user.password !== password) return socket.emit('login_error', "パスワードが違います");
-                
-                let message = "";
-                if (user.bank < 0) {
-                    const interest = Math.floor(user.bank * 0.1);
-                    user.bank += interest;
-                    message = `【ATM通知】借金の利息 ${Math.abs(interest)}枚 が加算されました`;
-                } else if (user.bank > 0) {
-                    const bonus = Math.floor(user.bank * 0.01);
-                    if (bonus > 0) {
-                        user.bank += bonus;
-                        message = `【銀行通知】預金利息 ${bonus}枚 が入金されました！`;
-                    }
-                }
-                if (message) {
-                    await user.save();
-                    socket.emit('login_error', message);
-                }
+            } else if (user.password !== password) {
+                return socket.emit('login_error', "パスワードが違います");
             }
             socket.data.userName = name;
             socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
-            
-            const history = await Chat.find().sort({ time: -1 }).limit(30);
-            const chatHistory = await Promise.all(history.reverse().map(async (c) => {
-                const author = await User.findOne({ name: c.userName });
-                return { userName: c.userName, message: c.message, isDebtor: author ? author.bank < 0 : false };
-            }));
-            socket.emit('chat_history', chatHistory);
-            updateRanking();
-        } catch (err) { console.error(err); }
+        } catch (e) { console.error(e); }
+    });
+
+    // ATM
+    socket.on('atm_request', async ({ amount, type }) => {
+        const user = await User.findOne({ name: socket.data.userName });
+        if (!user || amount <= 0) return;
+        if (type === 'deposit' && user.chips >= amount) {
+            user.chips -= amount; user.bank += amount;
+        } else if (type === 'withdraw' && user.bank - amount >= -10000) {
+            user.chips += amount; user.bank -= amount;
+        }
+        await user.save();
+        socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
     });
 
     // スロット
-    socket.on('spin_request', async (data) => {
-        try {
-            const user = await User.findOne({ name: socket.data.userName });
-            if (!user || user.chips < data.bet) return;
-            const symbols = ["🍒", "💎", "7️⃣", "🍋", "⭐"];
-            const isPekari = Math.floor(Math.random() * 50) === 0;
-            let result = isPekari ? ["7️⃣", "7️⃣", "7️⃣"] : [symbols[Math.floor(Math.random() * 5)], symbols[Math.floor(Math.random() * 5)], symbols[Math.floor(Math.random() * 5)]];
-            let multiplier = (result[0] === result[1] && result[1] === result[2]) ? (result[0] === "7️⃣" ? 50 : 10) : 0;
-            user.chips = user.chips - data.bet + (data.bet * multiplier);
-            if (user.chips < 0) user.chips = 0;
-            await user.save();
-            socket.emit('spin_result', { result, win: data.bet * multiplier, newChips: user.chips, isPekari });
-            updateRanking();
-        } catch (err) { console.error(err); }
-    });
-
-    // チャット
-    socket.on('chat_message', async (data) => {
-        if (!socket.data.userName) return;
-        const messageText = (typeof data === 'string') ? data : (data.message || data.msg);
-        try {
-            const user = await User.findOne({ name: socket.data.userName });
-            const newChat = new Chat({ userName: socket.data.userName, message: messageText });
-            await newChat.save();
-            io.emit('broadcast', {
-                userName: socket.data.userName,
-                message: messageText,
-                isDebtor: user ? user.bank < 0 : false
-            });
-        } catch (err) { console.error(err); }
-    });
-
-    // スコア交換
-    const CLICK_RATE = 100;
-    socket.on('exchange_request', async (data) => {
-        const { score } = data;
-        try {
-            const user = await User.findOne({ name: socket.data.userName });
-            if (!user || score < CLICK_RATE) return;
-            const reward = Math.floor(score / CLICK_RATE);
-            user.chips += reward;
-            await user.save();
-            socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
-            socket.emit('exchange_success', { addedChips: reward });
-        } catch (err) { console.error(err); }
+    socket.on('spin_request', async ({ bet }) => {
+        const user = await User.findOne({ name: socket.data.userName });
+        if (!user || user.chips < bet) return;
+        const isWin = Math.random() < 0.02; 
+        const winAmount = isWin ? bet * 50 : 0;
+        user.chips = user.chips - bet + winAmount;
+        await user.save();
+        socket.emit('spin_result', { result: isWin ? ["7️⃣","7️⃣","7️⃣"] : ["🍋","🍒","🍉"], win: winAmount, newChips: user.chips });
     });
 
     // ブラックジャック
-    socket.on('bj_start', async (data) => {
+    socket.on('bj_start', async ({ bet }) => {
         const user = await User.findOne({ name: socket.data.userName });
-        const bet = parseInt(data.bet) || 100;
-        if (!user || user.chips < bet) return socket.emit('login_error', "チップが足りません");
-        user.chips -= bet;
-        await user.save();
+        if (!user || user.chips < bet) return;
+        user.chips -= bet; await user.save();
         const deck = createDeck();
-        bjGames[socket.id] = { p: [deck.pop(), deck.pop()], d: [deck.pop(), deck.pop()], deck, bet: bet };
+        bjGames[socket.id] = { p: [deck.pop(), deck.pop()], d: [deck.pop(), deck.pop()], deck, bet };
+        socket.emit('bj_update', { player: bjGames[socket.id].p, dealer: [bjGames[socket.id].d[0], {rank:'?'}], pSum: getBJValue(bjGames[socket.id].p) });
         socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
-        socket.emit('bj_update', { player: bjGames[socket.id].p, dealer: [bjGames[socket.id].d[0], {rank:'?', suit:'?'}], pSum: getBJValue(bjGames[socket.id].p) });
-    });
-
-    socket.on('bj_hit', () => {
-        const g = bjGames[socket.id]; if (!g) return;
-        g.p.push(g.deck.pop());
-        const sum = getBJValue(g.p);
-        if (sum > 21) handleBJEnd(socket, g, 0, "BUST (Lose)");
-        else socket.emit('bj_update', { player: g.p, dealer: [g.d[0], {rank:'?'}], pSum: sum });
     });
 
     socket.on('bj_stand', async () => {
@@ -213,135 +123,49 @@ io.on('connection', (socket) => {
         let dSum = getBJValue(g.d);
         while (dSum < 17) { g.d.push(g.deck.pop()); dSum = getBJValue(g.d); }
         const pSum = getBJValue(g.p);
-        let win = (dSum > 21 || pSum > dSum) ? g.bet * 2 : (pSum === dSum ? g.bet : 0);
-        let msg = (dSum > 21 || pSum > dSum) ? "WIN!" : (pSum === dSum ? "PUSH" : "LOSE");
-        handleBJEnd(socket, g, win, msg);
-    });
-
-// HL開始（DEALボタンが反応するように修正）
-socket.on('hl_start', async (data) => {
-    try {
+        const win = (dSum > 21 || pSum > dSum) ? g.bet * 2 : (pSum === dSum ? g.bet : 0);
         const user = await User.findOne({ name: socket.data.userName });
-        // data.bet が無い場合や、文字で送られてきた場合を考慮してパース
-        const bet = parseInt(data?.bet || data?.amount); 
-        
-        if (!user || user.chips < bet || isNaN(bet) || bet <= 0) {
-            return socket.emit('login_error', "チップが足りないか、金額が不正です");
-        }
-
-        // チップを引く
-        user.chips -= bet;
-        await user.save();
-
-        const deck = createDeck();
-        const firstCard = deck.pop();
-        
-        // サーバー側の状態を保存
-        socket.data.hlDeck = deck;
-        socket.data.hlCurrent = firstCard;
-        socket.data.hlPending = bet; 
-        socket.data.hlCount = 0;
-
-        // 【修正ポイント】フロント側が待っている可能性のあるイベント名をすべて送る
-        socket.emit('hl_setup', { currentCard: firstCard, bet: bet });
-        socket.emit('hl_start_success', { currentCard: firstCard }); 
-        
-        // 所持金の更新通知
-        socket.emit('login_success', { 
-            name: user.name, 
-            chips: user.chips, 
-            bank: user.bank 
-        });
-
-    } catch (err) {
-        console.error("HL Start Error:", err);
-    }
-});
-    
-// HL予想
-socket.on('hl_guess', async (data) => {
-    if (!socket.data.hlCurrent) return;
-    
-    const deck = socket.data.hlDeck;
-    const nextCard = deck.pop();
-    const curVal = getHLValue(socket.data.hlCurrent.rank);
-    const nextVal = getHLValue(nextCard.rank);
-    
-    // 勝ち判定
-    let win = (data.choice === 'high' && nextVal >= curVal) || 
-               (data.choice === 'low' && nextVal <= curVal);
-
-    if (win) {
-        // 配当を単純に2倍にする
-        socket.data.hlPending = socket.data.hlPending * 2; 
-        socket.data.hlCount++;
-        socket.data.hlCurrent = nextCard;
-        
-        // 【重要】フロント側に「継続(win: true)」と「現在の配当」をしっかり伝える
-        socket.emit('hl_result', { 
-            win: true, 
-            msg: `正解！配当：${socket.data.hlPending} 枚`, 
-            oldCard: nextCard,
-            pending: socket.data.hlPending,
-            count: socket.data.hlCount
-        });
-    } else {
-        // 負けたらデータをリセット
-        socket.data.hlPending = 0;
-        socket.data.hlCount = 0;
-        socket.data.hlCurrent = null;
-        
-        socket.emit('hl_result', { 
-            win: false, 
-            msg: "ハズレ！没収です", 
-            oldCard: nextCard 
-        });
-    }
-});
-    
-    socket.on('hl_collect', async () => {
-        const user = await User.findOne({ name: socket.data.userName });
-        if (!user || !socket.data.hlPending || socket.data.hlCount === 0) return socket.emit('login_error', "コレクトできません");
-        user.chips += socket.data.hlPending;
-        const reward = socket.data.hlPending;
-        socket.data.hlPending = 0;
-        socket.data.hlCount = 0;
-        await user.save();
-        socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
-        socket.emit('hl_result', { msg: `安全に ${reward} 枚回収しました！`, newChips: user.chips });
-    });
-
-    socket.on('disconnect', () => {
+        user.chips += win; await user.save();
+        socket.emit('bj_result', { player: g.p, dealer: g.d, msg: win > g.bet ? "WIN" : "LOSE", newChips: user.chips });
         delete bjGames[socket.id];
     });
+
+    // ハイアンドロー (修正版)
+    socket.on('hl_start', async (data) => {
+        const user = await User.findOne({ name: socket.data.userName });
+        const bet = parseInt(data?.bet || 100);
+        if (!user || user.chips < bet) return socket.emit('login_error', "チップ不足");
+        user.chips -= bet; await user.save();
+        const deck = createDeck();
+        const card = deck.pop();
+        socket.data.hl = { deck, current: card, pending: bet, count: 0 };
+        socket.emit('hl_setup', { currentCard: card });
+        socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
+    });
+
+    socket.on('hl_guess', ({ choice }) => {
+        const hl = socket.data.hl; if (!hl) return;
+        const next = hl.deck.pop();
+        const win = (choice === 'high' && getHLValue(next.rank) >= getHLValue(hl.current.rank)) ||
+                    (choice === 'low' && getHLValue(next.rank) <= getHLValue(hl.current.rank));
+        if (win) {
+            hl.pending *= 2; hl.count++; hl.current = next;
+            socket.emit('hl_result', { win: true, msg: `正解！配当:${hl.pending}`, oldCard: next, pending: hl.pending });
+        } else {
+            socket.data.hl = null;
+            socket.emit('hl_result', { win: false, msg: "没収", oldCard: next });
+        }
+    });
+
+    socket.on('hl_collect', async () => {
+        const hl = socket.data.hl;
+        if (!hl || hl.count === 0) return;
+        const user = await User.findOne({ name: socket.data.userName });
+        user.chips += hl.pending; await user.save();
+        socket.emit('hl_result', { msg: `${hl.pending}枚回収！`, newChips: user.chips });
+        socket.data.hl = null;
+        socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
+    });
 });
 
-async function handleBJEnd(socket, g, win, msg) {
-    const user = await User.findOne({ name: socket.data.userName });
-    if (!user) return;
-    user.chips += win;
-    await user.save();
-    socket.emit('bj_result', { player: g.p, dealer: g.d, msg, newChips: user.chips });
-    delete bjGames[socket.id];
-    updateRanking();
-}
-
-async function updateRanking() {
-    try {
-        const users = await User.find().sort({ chips: -1 }).limit(10);
-        const list = users.map(u => ({ name: u.name, chips: u.chips, isDebtor: u.bank < 0 }));
-        io.emit('update_ranking', list);
-    } catch (err) { console.error(err); }
-}
-
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, "0.0.0.0", () => console.log(`🚀 Server running on port ${PORT}`));
-
-
-
-
-
-
-
-
-
+server.listen(process.env.PORT || 3000, "0.0.0.0", () => console.log(`🚀 Ready`));
