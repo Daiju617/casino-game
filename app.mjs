@@ -96,6 +96,7 @@ io.on('connection', (socket) => {
             
             // ログイン成功時に履歴を送る
             sendChatHistory();
+            broadcastRanking();
         } catch (e) { console.error(e); }
     });
 
@@ -111,6 +112,16 @@ io.on('connection', (socket) => {
         await user.save();
         socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
     });
+
+    // --- ランキング更新関数 (サーバー側の共通関数エリアに追加) ---
+const broadcastRanking = async () => {
+    try {
+        // チップ所持数が多い順にトップ10を取得
+        const topUsers = await User.find().sort({ chips: -1 }).limit(10);
+        const rankingData = topUsers.map(u => ({ name: u.name, chips: u.chips }));
+        io.emit('update_ranking', rankingData); // 全員に送信
+    } catch (e) { console.error("Ranking Error:", e); }
+};
 
     // スロット
     socket.on('spin_request', async ({ bet }) => {
@@ -237,6 +248,7 @@ io.on('connection', (socket) => {
 
                 // 所持金更新
                 socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
+                broadcastRanking();
             }
         } catch (e) { console.error("HL Collect Error:", e); }
     });
@@ -244,6 +256,7 @@ io.on('connection', (socket) => {
 }); // ここが io.on の閉じカッコ。全ての通信はこの手前に入れる。
 
 server.listen(process.env.PORT || 3000, "0.0.0.0", () => console.log(`🚀 Ready`));
+
 
 
 
