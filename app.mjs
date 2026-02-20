@@ -147,43 +147,33 @@ io.on('connection', (socket) => {
     });
 
 // --- 【1】ハイアンドロー開始 ---
-    socket.on('hl_start', async (data) => {
+socket.on('hl_start', async (data) => {
         try {
             const user = await User.findOne({ name: socket.data.userName });
-            // フロントから送られてくる賭け金を確実に取得
             const bet = parseInt(data?.bet || 100);
 
             if (!user || user.chips < bet || bet <= 0) {
-                return socket.emit('login_error', "チップが足りないか、無効な金額です");
+                return socket.emit('login_error', "チップ不足");
             }
 
-            // チップをマイナス
             user.chips -= bet;
             await user.save();
 
             const deck = createDeck();
             const firstCard = deck.pop();
 
-            // サーバー側の変数名を固定（hlPending, hlCount, hlDeck）
-            socket.data.hlPending = bet; 
+            // 初期値をセット
+            socket.data.hlPending = bet; // ここを bet に固定
             socket.data.hlCount = 0;
             socket.data.hlDeck = deck;
             socket.data.hlCurrent = firstCard;
 
-            // セットアップ。ここがズレるとDEALボタンから進まない
             socket.emit('hl_setup', { currentCard: firstCard });
-            
-            // 所持金を同期
-            socket.emit('login_success', { 
-                name: user.name, 
-                chips: user.chips, 
-                bank: user.bank 
-            });
-        } catch (e) { console.error("HL Start Error:", e); }
+            socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
+        } catch (e) { console.error(e); }
     });
 
-    // --- 【2】ハイアンドロー予想 (ここを抜本的に修正) ---
-socket.on('hl_guess', async (data) => {
+    socket.on('hl_guess', async (data) => {
         if (!socket.data.hlCurrent || !socket.data.hlDeck) return;
 
         const nextCard = socket.data.hlDeck.pop();
@@ -194,27 +184,26 @@ socket.on('hl_guess', async (data) => {
                       (data.choice === 'low' && nextVal <= curVal);
 
         if (isWin) {
-            socket.data.hlPending = Math.floor(socket.data.hlPending * 2);
+            // ★配当を「現在の配当 × 2」にする（これで倍々になる）
+            socket.data.hlPending = Math.floor(Number(socket.data.hlPending) * 2);
             socket.data.hlCount++;
             socket.data.hlCurrent = nextCard;
 
             socket.emit('hl_result', {
                 win: true, 
-                // 【重要】フロントの判定に合わせて "WIN" という文字を必ず含める
                 msg: `WIN! 正解！配当: ${socket.data.hlPending}枚`, 
-                oldCard: nextCard,
-                currentCard: nextCard,
+                oldCard: nextCard, // rank落ち対策で必ず送る
                 pending: socket.data.hlPending,
-                count: socket.data.hlCount,
-                newChips: undefined // 途中でチップを更新させない
+                count: socket.data.hlCount
             });
         } else {
+            const lostCard = nextCard;
             socket.data.hlPending = 0;
             socket.data.hlCurrent = null;
             socket.emit('hl_result', {
                 win: false,
-                msg: "LOSE... 残念、ハズレです", 
-                oldCard: nextCard,
+                msg: "LOSE... ハズレです", 
+                oldCard: lostCard, // エラー回避のため負けてもカード情報を送る
                 pending: 0
             });
         }
@@ -251,6 +240,7 @@ socket.on('hl_guess', async (data) => {
 }); // ここが io.on の閉じカッコ。全ての通信はこの手前に入れる。
 
 server.listen(process.env.PORT || 3000, "0.0.0.0", () => console.log(`🚀 Ready`));
+
 
 
 
