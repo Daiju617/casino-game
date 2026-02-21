@@ -20,6 +20,8 @@
         align-items: center;
     }
 
+#game { display: grid; gap: 10px; width: 300px; margin: 20px auto; }
+
        /* --- 1. ベースの設定（遷移を滑らかにする） --- */
 body {
     background-color: #000;
