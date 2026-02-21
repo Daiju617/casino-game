@@ -65,7 +65,7 @@ const getHLValue = (rank) => {
 
 let bjGames = {};
 
-const { MongoClient } = require("mongodb");
+import { MongoClient } from "mongodb";
 const uri = process.env.MONGO_URI;
 const client = new MongoClient(uri);
 
@@ -299,6 +299,7 @@ const broadcastRanking = async () => {
 }); // ここが io.on の閉じカッコ。全ての通信はこの手前に入れる。
 
 server.listen(process.env.PORT || 3000, "0.0.0.0", () => console.log(`🚀 Ready`));
+
 
 
 
