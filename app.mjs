@@ -33,7 +33,9 @@ const Chat = mongoose.model('Chat', new mongoose.Schema({
     time: { type: Date, default: Date.now }
 }));
 
-app.use(express.static(__dirname));
+// 旧：app.use(express.static(__dirname)); 
+// 新：publicフォルダを読み込む設定
+app.use(express.static(path.join(__dirname, 'public')));
 
 // --- 共通関数 ---
 const createDeck = () => {
@@ -299,6 +301,7 @@ const broadcastRanking = async () => {
 }); // ここが io.on の閉じカッコ。全ての通信はこの手前に入れる。
 
 server.listen(process.env.PORT || 3000, "0.0.0.0", () => console.log(`🚀 Ready`));
+
 
 
 
