@@ -65,6 +65,49 @@ const getHLValue = (rank) => {
 
 let bjGames = {};
 
+const { MongoClient } = require("mongodb");
+const uri = process.env.MONGO_URI;
+const client = new MongoClient(uri);
+
+async function getCollection() {
+  await client.connect();
+  return client.db("apm").collection("scores");
+}
+
+// スコア保存
+app.post("/api/score", async (req, res) => {
+  const { name, apm, accuracy, mode } = req.body;
+
+  if (!name || !apm || !mode) {
+    return res.status(400).json({ error: "Invalid data" });
+  }
+
+  const col = await getCollection();
+  await col.insertOne({
+    name,
+    apm,
+    accuracy,
+    mode,      // 3x3 / 4x4 / 5x5
+    date: Date.now()
+  });
+
+  res.json({ success: true });
+});
+
+// ランキング取得（モード別）
+app.get("/api/ranking/:mode", async (req, res) => {
+  const mode = req.params.mode;
+  const col = await getCollection();
+
+  const ranking = await col
+    .find({ mode })
+    .sort({ apm: -1 })
+    .limit(100)
+    .toArray();
+
+  res.json(ranking);
+});
+
 // --- 通信ロジック ---
 io.on('connection', (socket) => {
     
@@ -256,6 +299,7 @@ const broadcastRanking = async () => {
 }); // ここが io.on の閉じカッコ。全ての通信はこの手前に入れる。
 
 server.listen(process.env.PORT || 3000, "0.0.0.0", () => console.log(`🚀 Ready`));
+
 
 
 
