@@ -112,6 +112,34 @@ app.get("/api/ranking/:mode", async (req, res) => {
 
 // --- 通信ロジック ---
 io.on('connection', (socket) => {
+
+    // --- チャットメッセージの受信と全員への送信 ---
+    socket.on('chat_message', async (msg) => {
+        try {
+            if (!socket.data.userName || !msg) return;
+
+            // 1. データベースに保存
+            const newChat = new Chat({
+                userName: socket.data.userName,
+                message: msg,
+                time: new Date()
+            });
+            await newChat.save();
+
+            // 2. 発信者の債務者情報を確認
+            const user = await User.findOne({ name: socket.data.userName });
+            const isDebtor = user ? user.bank < 0 : false;
+
+            // 3. 全員にメッセージをリアルタイムで送る
+            io.emit('broadcast', {
+                userName: socket.data.userName,
+                message: msg,
+                isDebtor: isDebtor
+            });
+        } catch (e) {
+            console.error("Chat Send Error:", e);
+        }
+    });
     
     // ログイン履歴取得用の関数（io.onの中で定義）
     const sendChatHistory = async () => {
@@ -301,6 +329,7 @@ const broadcastRanking = async () => {
 }); // ここが io.on の閉じカッコ。全ての通信はこの手前に入れる。
 
 server.listen(process.env.PORT || 3000, "0.0.0.0", () => console.log(`🚀 Ready`));
+
 
 
 
