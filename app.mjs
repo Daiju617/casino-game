@@ -153,21 +153,28 @@ io.on('connection', (socket) => {
         } catch (e) { console.error(e); }
     };
 
-    // ログイン
     socket.on('login_request', async (data) => {
         try {
             const { name, password } = data;
+            const clientIp = socket.handshake.address; // 接続元のIPを取得
+
             let user = await User.findOne({ name });
+
             if (!user) {
-                user = new User({ name, password, ip: socket.handshake.address });
+                // 【新規作成時】同じIPのユーザーが既にいないかチェック
+                const existingIpUser = await User.findOne({ ip: clientIp });
+                if (existingIpUser) {
+                    return socket.emit('login_error', "このIPからは1つのアカウントしか作成できません");
+                }
+                
+                user = new User({ name, password, ip: clientIp });
                 await user.save();
             } else if (user.password !== password) {
                 return socket.emit('login_error', "パスワードが違います");
             }
+
             socket.data.userName = name;
             socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
-            
-            // ログイン成功時に履歴を送る
             sendChatHistory();
             broadcastRanking();
         } catch (e) { console.error(e); }
@@ -326,9 +333,32 @@ const broadcastRanking = async () => {
         } catch (e) { console.error("HL Collect Error:", e); }
     });
 
+    // --- クリッカー換金処理 ---
+    socket.on('exchange_request', async (data) => {
+        try {
+            const user = await User.findOne({ name: socket.data.userName });
+            if (!user) return;
+
+            const score = parseInt(data.score);
+            if (isNaN(score) || score < 100) return;
+
+            // 100スコアにつき1チップに変換
+            const addedChips = Math.floor(score / 100);
+            
+            user.chips += addedChips;
+            await user.save();
+
+            // フロントに成功通知と新しいチップ数を送る
+            socket.emit('exchange_success', { addedChips: addedChips });
+            socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
+            broadcastRanking(); // ランキングも更新
+        } catch (e) { console.error("Exchange Error:", e); }
+    });
+
 }); // ここが io.on の閉じカッコ。全ての通信はこの手前に入れる。
 
 server.listen(process.env.PORT || 3000, "0.0.0.0", () => console.log(`🚀 Ready`));
+
 
 
 
