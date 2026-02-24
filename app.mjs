@@ -355,9 +355,61 @@ const broadcastRanking = async () => {
         } catch (e) { console.error("Exchange Error:", e); }
     });
 
+    // --- [重要] Socket.ioの設定を「外部接続許可」に書き換え ---
+const io = new Server(server, { 
+    cors: { 
+        origin: "*", // GitHub Pagesからの接続を許可
+        methods: ["GET", "POST"]
+    } 
+});
+
+// 管理者専用のマスターキー（適宜変更してくれ！）
+const MASTER_KEY = "YAWATA_SECRET_TOKEN_2026";
+
+io.on('connection', (socket) => {
+    // --- 遠隔管理者のログイン認証 ---
+    socket.on('admin_remote_login', (data) => {
+        if (data.key === MASTER_KEY) {
+            socket.join("admin_room"); // 特権ルームに隔離
+            socket.emit('admin_auth_success', { msg: "認証に成功しました。接続完了。" });
+        } else {
+            console.log("⚠️ 不正な管理者ログイン試行を検知");
+        }
+    });
+
+    // --- 遠隔操作コマンド ---
+    socket.on('admin_remote_command', async (data) => {
+        // 認証済みルームにいない場合は無視
+        if (!socket.rooms.has("admin_room")) return;
+
+        try {
+            if (data.type === 'get_users') {
+                const users = await User.find().sort({ chips: -1 });
+                socket.emit('admin_remote_data', { type: 'user_list', users });
+            }
+            
+            if (data.type === 'update_chips') {
+                const { target, amount } = data;
+                const user = await User.findOneAndUpdate({ name: target }, { chips: amount }, { new: true });
+                // 本人に通知（もし接続中なら）
+                io.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
+                // ランキング更新
+                broadcastRanking();
+            }
+
+            if (data.type === 'ban_user') {
+                await User.deleteOne({ name: data.target });
+                socket.emit('admin_remote_msg', { msg: `${data.target} をBANしました` });
+                broadcastRanking();
+            }
+        } catch (e) { console.error("Admin Command Error:", e); }
+    });
+});
+
 }); // ここが io.on の閉じカッコ。全ての通信はこの手前に入れる。
 
 server.listen(process.env.PORT || 3000, "0.0.0.0", () => console.log(`🚀 Ready`));
+
 
 
 
