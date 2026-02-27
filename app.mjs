@@ -85,6 +85,15 @@ const broadcastRanking = async () => {
     } catch (e) { console.error("Ranking Error:", e); }
 };
 
+// 共通のBOTメッセージ送信関数
+const sendBotMsg = (msg) => {
+    io.emit('broadcast', {
+        userName: "🤖 BOT",
+        message: msg,
+        isDebtor: false // BOTは借金しないので
+    });
+};
+
 io.on('connection', (socket) => {
     console.log("New Client Connected");
 
@@ -226,7 +235,11 @@ io.on('connection', (socket) => {
         const winAmount = Math.floor(bet * multiplier);
         user.chips += winAmount;
         await user.save();
-
+        
+    // ...既存の処理...
+    sendBotMsg(`${socket.data.userName} が ${multiplier.toFixed(2)}x で利確！ +${Math.floor(bet * multiplier)}枚`);
+});
+    
         socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
         broadcastRanking();
     });
@@ -256,6 +269,11 @@ io.on('connection', (socket) => {
 
         if (isWin) user.chips += payout;
         await user.save();
+
+        // --- [roulette_result の直前に追加] ---
+if (isWin) {
+    sendBotMsg(`🎉 【ルーレット】 ${socket.data.userName} が当選！ ${payout}枚獲得！`);
+}
 
         socket.emit('roulette_result', { resultNumber, isWin, payout, newChips: user.chips });
         socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
@@ -306,4 +324,5 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, "0.0.0.0", () => {
     console.log(`🚀 Server running on port ${PORT}`);
 });
+
 
