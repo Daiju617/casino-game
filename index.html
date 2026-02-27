@@ -7,17 +7,16 @@
    <style>
 :root {
     --bg-dark: #0f0f0f;
-    --bg-panel: #1a1a1a;
-    --accent-green: #00ff00;
-    --accent-gold: #ffaa00;
+    --bg-panel: #1a1a1a;      /* クラッシュの背景色 */
+    --accent-green: #00ff00;  /* クラッシュのメイン色 */
+    --accent-gold: #ffaa00;   /* 利確・当選のアクセント */
     --text-main: #ffffff;
-    --text-sub: #b0b0b0;
-    --chat-bg: #151515;
+    --border-main: #333;
 }
 
 * { box-sizing: border-box; }
 
-/* --- 1. ベースレイアウト --- */
+/* 全体のベース */
 body {
     margin: 0;
     min-height: 100vh;
@@ -29,167 +28,139 @@ body {
     align-items: center;
 }
 
-/* --- 2. ログイン画面（最前面に固定） --- */
+/* --- 1. ログイン画面の完全統一 --- */
 #loginOverlay {
     position: fixed;
     top: 0; left: 0; width: 100%; height: 100%;
     background: var(--bg-dark);
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    z-index: 9999; /* 他の要素より上に */
+    display: flex; justify-content: center; align-items: center;
+    z-index: 9999;
 }
 
-/* --- 3. ヘッダーとチップ表示 --- */
-header { padding: 20px; width: 100%; }
-h1 {
-    font-size: 2rem;
-    font-weight: 900;
-    color: var(--accent-green);
-    text-transform: uppercase;
-    letter-spacing: 3px;
-    margin-bottom: 10px;
+/* --- 2. ゲームカード（全セクション共通） --- */
+.section, .game-card, .chat-section {
+    background: var(--bg-panel) !important;
+    border: 2px solid var(--border-main) !important;
+    border-top: 4px solid var(--accent-green) !important; /* あの緑ライン */
+    border-radius: 15px !important;
+    padding: 20px !important;
+    margin: 10px !important;
+    width: 100% !important;
+    max-width: 400px !important;
+    text-align: center !important;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5) !important;
 }
 
+/* タイトルをクラッシュの H2 に統一 */
+h1, h2, .section-title {
+    font-size: 1.5rem !important;
+    font-weight: 900 !important;
+    color: var(--accent-green) !important;
+    text-transform: uppercase !important;
+    letter-spacing: 2px !important;
+    margin: 0 0 20px 0 !important;
+    border: none !important;
+    padding: 0 !important;
+}
+
+/* --- 3. 入力フォーム（クラッシュの賭け金欄と全く同じ） --- */
+input[type="number"], input[type="text"], input[type="password"] {
+    background: #111 !important;
+    border: 1px solid var(--border-main) !important;
+    border-radius: 6px !important;
+    color: #fff !important;
+    padding: 12px !important;
+    margin: 8px 0 !important;
+    width: 100% !important;
+    outline: none !important;
+    font-size: 1rem !important;
+}
+input:focus { border-color: var(--accent-green) !important; }
+
+/* --- 4. ボタン（クラッシュの BET ボタンと全く同じ） --- */
+button, .btn-primary {
+    background: var(--accent-green) !important;
+    color: #000 !important;
+    border: none !important;
+    border-radius: 5px !important;
+    padding: 15px 30px !important;
+    font-weight: 800 !important;
+    cursor: pointer !important;
+    text-transform: uppercase !important;
+    width: 100% !important;
+    margin: 5px 0 !important;
+    transition: 0.2s !important;
+}
+button:hover { filter: brightness(1.2) !important; }
+
+/* 利確ボタンの色（ルーレット当選等も共通） */
+.btn-cashout, .bet-btn.red {
+    background: var(--accent-gold) !important;
+}
+
+/* --- 5. ゲーム内パーツの統一 --- */
+/* スロットリール・カード・ルーレット盤 */
+.slot-frame div, .card-ui, #roulette-wheel {
+    background: #000 !important;
+    border: 2px solid var(--accent-green) !important;
+    border-radius: 8px !important;
+    color: #fff !important;
+    font-weight: bold !important;
+}
+
+/* --- 6. チャット・ランキング等の特殊要素 --- */
+#chat-log {
+    background: #050505 !important;
+    border-radius: 8px !important;
+    height: 300px !important;
+    padding: 15px !important;
+    overflow-y: auto !important;
+    border: 1px solid var(--border-main) !important;
+}
+
+.msg-box {
+    margin: 6px 0 !important;
+    padding: 10px 15px !important;
+    border-radius: 8px !important;
+}
+.msg-me { background: var(--accent-green) !important; color: #000 !important; }
+.msg-other { background: #2a2a2a !important; color: #eee !important; }
+
+/* ヘッダー周り */
+header { padding: 20px; width: 100%; text-align: center; }
 #chipBar {
     background: var(--bg-panel);
     padding: 12px 20px;
     border-radius: 8px;
     border-bottom: 3px solid var(--accent-green);
-    display: inline-flex;
-    align-items: center;
-    gap: 15px;
-    margin-bottom: 20px;
+    display: inline-block;
+    font-weight: bold;
 }
-#chips { font-size: 1.5rem; color: var(--accent-green); font-weight: bold; }
+#chips { color: var(--accent-green); font-size: 1.5rem; }
 
-/* --- 4. メインコンテンツ（ゲームとチャットの配置） --- */
+/* レイアウト調整 */
 main {
     width: 100%;
-    max-width: 1100px;
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    gap: 20px;
-    padding: 0 20px 40px;
-}
-
-/* ゲームカードとチャットセクションを統一 */
-.section, .chat-section {
-    background: var(--bg-panel);
-    border-radius: 12px;
-    padding: 25px;
-    min-width: 320px;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    border: 1px solid #333;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-}
-
-/* チャットを横幅いっぱいに */
-.chat-section {
-    flex: 1 1 100%; 
-    max-width: 100%;
-}
-
-/* --- 5. 入力・ボタン（現在のクラッシュ風） --- */
-input[type="number"], input[type="text"], input[type="password"] {
-    background: #111;
-    border: 2px solid #333;
-    border-radius: 6px;
-    color: #fff;
-    padding: 12px;
-    margin: 8px 0;
-    width: 100%;
-    outline: none;
-}
-input:focus { border-color: var(--accent-green); }
-
-button {
-    background: var(--accent-green);
-    color: #000;
-    border: none;
-    border-radius: 6px;
-    padding: 14px;
-    font-weight: 800;
-    cursor: pointer;
-    text-transform: uppercase;
-    width: 100%;
-    margin: 5px 0;
-}
-button:hover { filter: brightness(1.2); }
-.btn-cashout { background: var(--accent-gold) !important; }
-
-/* --- 6. ゲーム専用パーツ --- */
-#crash-multiplier {
-    font-size: 4.5rem;
-    font-weight: 900;
-    color: var(--accent-green);
-    margin: 20px 0;
-    text-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
-}
-
-#roulette-wheel {
-    font-size: 2.5rem;
-    background: #111;
-    border: 4px solid var(--accent-green);
-    border-radius: 50%;
-    width: 120px; height: 120px;
-    line-height: 112px;
-    margin: 20px auto;
-}
-
-/* --- 7. チャットログ（BOT対応） --- */
-#chat-log {
-    background: var(--chat-bg);
-    border-radius: 8px;
-    height: 350px;
-    padding: 15px;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    text-align: left;
-    border: 1px solid #222;
-}
-
-.msg-box {
-    margin: 6px 0;
-    padding: 10px 15px;
-    border-radius: 8px;
-    font-size: 14px;
-    max-width: 85%;
-}
-.msg-other { background: #2a2a2a; color: #eee; align-self: flex-start; }
-.msg-me { background: var(--accent-green); color: #000; align-self: flex-end; font-weight: bold; }
-
-/* BOT（実況）は中央で目立つように */
-.msg-bot {
-    align-self: center;
-    background: rgba(255, 170, 0, 0.15);
-    color: var(--accent-gold);
-    border: 1px solid var(--accent-gold);
-    width: 90%;
-    padding: 8px;
-    margin: 10px 0;
-    text-align: center;
-    font-weight: bold;
-    font-style: italic;
-    border-radius: 4px;
+    gap: 10px;
+    padding: 20px;
 }
 </style>
 </head>
 <body>
 
 <div id="loginOverlay">
-    <div class="section" style="width:320px;">
-        <h2 style="color:var(--accent);">LOGIN / SIGNUP</h2>
+    <div class="section" style="width:320px; border-top: 4px solid var(--accent-green); background: #1a1a1a;">
+        <h2 style="color:var(--accent-green); text-align:center; letter-spacing: 2px; margin-bottom:20px;">SYSTEM ACCESS</h2>
         <div style="margin-top:20px;">
-            <input type="text" id="uName" placeholder="PLAYER NAME" style="width:100%; margin-bottom:10px;"><br>
-            <input type="password" id="uPass" placeholder="PASSWORD" style="width:100%; margin-bottom:20px;"><br>
-            <button onclick="login()" style="width:100%;">ACCESS SYSTEM</button>
-            <p id="err" style="color:var(--accent2); font-size:0.8rem; margin-top:10px;"></p>
+            <input type="text" id="uName" placeholder="PLAYER NAME" style="width:100%; margin-bottom:10px; background:#000; border:1px solid #444; color:#00ff00; padding:10px;">
+            <input type="password" id="uPass" placeholder="PASSWORD" style="width:100%; margin-bottom:20px; background:#000; border:1px solid #444; color:#00ff00; padding:10px;">
+            
+            <button onclick="login()" style="width:100%; background:var(--accent-green); color:#000; font-weight:bold; padding:12px;">ACCESS SYSTEM</button>
+            
+            <p id="err" style="color:#ff4d6a; font-size:0.8rem; margin-top:15px; text-align:center; min-height:1.2em;"></p>
         </div>
     </div>
 </div>
@@ -208,7 +179,7 @@ button:hover { filter: brightness(1.2); }
   <button class="menu-button">APMテストへ</button>
 </a>
 
-    <div class="section">
+    <div class="game-card">
         <div class="section-title"><span class="label">Cyber Slot</span></div>
         <div id="gogoLamp" style="color: #222; font-weight: bold; font-size: 1.5rem;">GOGO!</div>
         <div class="slot-frame" style="display: flex; justify-content: center; gap: 10px;">
@@ -228,7 +199,7 @@ button:hover { filter: brightness(1.2); }
         <div id="sRes" class="result"></div>
     </div>
 
-    <div class="section">
+    <div class="game-card">
         <div class="section-title"><span class="label">Blackjack</span></div>
         <div id="bjDCards" class="card-row"></div>
         <div id="bjPCards" class="card-row"></div>
@@ -244,7 +215,7 @@ button:hover { filter: brightness(1.2); }
         <div id="bjRes" class="result"></div>
     </div>
 
-    <div class="section">
+    <div class="game-card">
         <div class="section-title"><span class="label">High & Low</span></div>
         <div class="card-row">
             <div id="hlCurrent" class="card-ui">?</div>
@@ -307,7 +278,7 @@ button:hover { filter: brightness(1.2); }
     #roulette-wheel { font-size: 2.5rem; background: #004d00; border: 5px solid #ffd700; border-radius: 50%; width: 100px; height: 100px; line-height: 100px; margin: 10px auto; }
 </style>
 
-    <div class="section">
+    <div class="game-card">
     <div class="section-title"><span class="label">ATM / 闇金窓口</span></div>
     <div style="font-size: 1.4rem; margin: 10px 0;">BANK: <span id="bankBalance" style="color:#fcee0a;">0</span></div>
     <div class="control-row">
@@ -319,7 +290,7 @@ button:hover { filter: brightness(1.2); }
     </div>
 </div>
 
-    <div class="section">
+    <div class="game-card">
         <div class="section-title"><span class="label">Ranking</span></div>
         <div id="rList"></div>
     </div>
@@ -783,6 +754,7 @@ socket.on('chat_history', (msgs) => {
 </script>
 </body>
 </html>
+
 
 
 
