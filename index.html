@@ -700,29 +700,32 @@ function stopCrashLocal(msg) {
 function betR(type) {
     const betInput = document.getElementById('roulette-bet');
     const amount = parseInt(betInput.value);
-    
     if (isNaN(amount) || amount <= 0) return alert("賭け金を入力してください");
 
-    // 演出中（ぐるぐる）の間、ボタンを無効化
     const ball = document.getElementById('roulette-ball');
+    const wheel = document.getElementById('roulette-wheel'); // 色を変える対象
     
-    // 1. 数字をシャッフルする演出
     let count = 0;
     let timer = setInterval(() => {
-        ball.innerText = Math.floor(Math.random() * 37);
-        count++;
-        if (count > 20) { // 20回シャッフルしたら停止
-            clearInterval(timer);
-            
-            // 2. ここで最終結果を確定
-            const result = Math.floor(Math.random() * 37);
-            ball.innerText = result;
+        const tempNum = Math.floor(Math.random() * 37);
+        ball.innerText = tempNum;
 
-            // 3. 演出が終わってからサーバーへ送る、または判定を出す
-            // socket.emit('roulette_bet', { type, amount, number: ... }); 
-            // ※判定ロジックをここに書くことで、alertが演出の後に出るようになります
+        // --- ここで色をちかちかさせる ---
+        // countが偶数なら赤、奇数なら黒にする（これで交互に見える）
+        if (count % 2 === 0) {
+            wheel.style.backgroundColor = "#aa0000"; // 赤
+            wheel.style.borderColor = "#ff0000";
+        } else {
+            wheel.style.backgroundColor = "#000000"; // 黒
+            wheel.style.borderColor = "#444444";
         }
-    }, 50);
+
+        count++;
+        if (count > 20) {
+            clearInterval(timer);
+            // ※最終的な結果と色はサーバーからの socket.on で上書きされます
+        }
+    }, 50); // 0.05秒ごとにちかちか
 }
 
 // 判定用の赤数字リスト（これがないと「赤」が判定できません）
@@ -809,6 +812,7 @@ socket.on('chat_history', (msgs) => {
 </script>
 </body>
 </html>
+
 
 
 
