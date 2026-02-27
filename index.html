@@ -725,9 +725,35 @@ function betR(type) {
     }, 50);
 }
 
+// 判定用の赤数字リスト（これがないと「赤」が判定できません）
+const RED_NUMBERS = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36];
+
 socket.on('roulette_result', (data) => {
-    document.getElementById('roulette-ball').innerText = data.resultNumber;
-    if (data.isWin) alert(`勝利！ ${data.payout}枚獲得！`);
+    const ball = document.getElementById('roulette-ball');
+    const wheel = document.getElementById('roulette-wheel'); // 外枠
+    const num = data.resultNumber;
+    
+    // 数字を更新
+    ball.innerText = num;
+
+    // --- ここで「見た目の色」を変える ---
+    if (num === 0) {
+        wheel.style.backgroundColor = "#008800"; // 緑
+        wheel.style.borderImage = "none"; 
+        wheel.style.borderColor = "#00ff00";
+    } else if (RED_NUMBERS.includes(num)) {
+        wheel.style.backgroundColor = "#aa0000"; // 赤
+        wheel.style.borderImage = "none";
+        wheel.style.borderColor = "#ff0000";
+    } else {
+        wheel.style.backgroundColor = "#000000"; // 黒
+        wheel.style.borderImage = "none";
+        wheel.style.borderColor = "#444444";
+    }
+
+    if (data.isWin) {
+        alert(`勝利！ ${data.payout}枚獲得！`);
+    }
 });
     
 // 7. ランキング（HTMLの id="rList" に合わせました）
@@ -783,6 +809,7 @@ socket.on('chat_history', (msgs) => {
 </script>
 </body>
 </html>
+
 
 
 
