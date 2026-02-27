@@ -7,146 +7,159 @@
    <style>
 :root {
     --bg-dark: #0f0f0f;
-    --bg-panel: #1a1a1a;      /* クラッシュの背景色 */
-    --accent-green: #00ff00;  /* クラッシュのメイン色 */
-    --accent-gold: #ffaa00;   /* 利確・当選のアクセント */
-    --text-main: #ffffff;
+    --bg-panel: #1a1a1a;
+    --grad-start: #0088aa; /* 青緑 */
+    --grad-end: #005500;   /* 深緑 */
+    --text-green: #00aa66;
+    --accent-gold: #b58900;
+    --text-main: #e0e0e0;
     --border-main: #333;
 }
 
-* { box-sizing: border-box; }
+/* 1. ベースレイアウト */
+* { box-sizing: border-box; font-family: 'Consolas', 'Monaco', 'Courier New', monospace !important; }
 
-/* 全体のベース */
 body {
-    margin: 0;
-    min-height: 100vh;
+    margin: 0; min-height: 100vh;
     background-color: var(--bg-dark);
-    font-family: 'Inter', 'Segoe UI', sans-serif;
     color: var(--text-main);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+    display: flex; flex-direction: column; align-items: center;
+    letter-spacing: 0.05em;
 }
 
-/* --- 1. ログイン画面の完全統一 --- */
 #loginOverlay {
-    position: fixed;
-    top: 0; left: 0; width: 100%; height: 100%;
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     background: var(--bg-dark);
     display: flex; justify-content: center; align-items: center;
     z-index: 9999;
 }
 
-/* --- 2. ゲームカード（全セクション共通） --- */
-.section, .game-card, .chat-section {
+/* 2. 各パネル・ゲームカードの外枠 */
+.section, .game-card, .chat-section, .crash-card, .roulette-card {
     background: var(--bg-panel) !important;
-    border: 2px solid var(--border-main) !important;
-    border-top: 4px solid var(--accent-green) !important; /* あの緑ライン */
-    border-radius: 15px !important;
-    padding: 20px !important;
-    margin: 10px !important;
-    width: 100% !important;
-    max-width: 400px !important;
-    text-align: center !important;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.5) !important;
-}
-
-/* タイトルをクラッシュの H2 に統一 */
-h1, h2, .section-title {
-    font-size: 1.5rem !important;
-    font-weight: 900 !important;
-    color: var(--accent-green) !important;
-    text-transform: uppercase !important;
-    letter-spacing: 2px !important;
-    margin: 0 0 20px 0 !important;
-    border: none !important;
-    padding: 0 !important;
-}
-
-/* --- 3. 入力フォーム（クラッシュの賭け金欄と全く同じ） --- */
-input[type="number"], input[type="text"], input[type="password"] {
-    background: #111 !important;
     border: 1px solid var(--border-main) !important;
-    border-radius: 6px !important;
-    color: #fff !important;
-    padding: 12px !important;
-    margin: 8px 0 !important;
+    border-top: 3px solid transparent !important;
+    border-image: linear-gradient(to right, var(--grad-start), var(--grad-end)) 1 !important;
+    border-radius: 4px;
+    padding: 25px !important;
+    margin: 15px !important;
     width: 100% !important;
-    outline: none !important;
-    font-size: 1rem !important;
-}
-input:focus { border-color: var(--accent-green) !important; }
-
-/* --- 4. ボタン（クラッシュの BET ボタンと全く同じ） --- */
-button, .btn-primary {
-    background: var(--accent-green) !important;
-    color: #000 !important;
-    border: none !important;
-    border-radius: 5px !important;
-    padding: 15px 30px !important;
-    font-weight: 800 !important;
-    cursor: pointer !important;
-    text-transform: uppercase !important;
-    width: 100% !important;
-    margin: 5px 0 !important;
-    transition: 0.2s !important;
-}
-button:hover { filter: brightness(1.2) !important; }
-
-/* 利確ボタンの色（ルーレット当選等も共通） */
-.btn-cashout, .bet-btn.red {
-    background: var(--accent-gold) !important;
+    max-width: 400px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.6);
 }
 
-/* --- 5. ゲーム内パーツの統一 --- */
-/* スロットリール・カード・ルーレット盤 */
-.slot-frame div, .card-ui, #roulette-wheel {
+/* 3. タイトル */
+h1, h2, .section-title {
+    font-size: 1.3rem !important;
+    font-weight: bold;
+    text-transform: uppercase;
+    margin-bottom: 20px !important;
+    background: linear-gradient(to right, var(--grad-start), #fff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+/* 4. ゲームパーツ（ここが抜けていました） */
+
+/* --- トランプカード (BJ / HL) --- */
+.card-row {
+    display: flex; justify-content: center; gap: 10px;
+    margin: 20px 0; min-height: 100px;
+}
+.card-ui {
+    width: 65px; height: 95px;
     background: #000 !important;
-    border: 2px solid var(--accent-green) !important;
-    border-radius: 8px !important;
+    border: 1px solid transparent !important;
+    border-image: linear-gradient(to bottom, var(--grad-start), #000) 1 !important;
     color: #fff !important;
-    font-weight: bold !important;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.4rem; font-weight: bold;
+    border-radius: 4px;
+}
+.card-ui.red { color: #ff4d6a !important; } /* 赤スート用 */
+.card-ui.back { background: #111 !important; color: var(--grad-end) !important; } /* 裏面 */
+
+/* --- スロットリール --- */
+.slot-frame {
+    display: flex; justify-content: center; gap: 15px; margin: 25px 0;
+}
+.slot-frame div {
+    width: 80px; height: 80px;
+    background: #000 !important;
+    border: 1px solid transparent !important;
+    border-image: linear-gradient(to bottom, var(--grad-start), #000) 1 !important;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 2.5rem; border-radius: 8px;
 }
 
-/* --- 6. チャット・ランキング等の特殊要素 --- */
+/* --- ルーレットホイール --- */
+#roulette-wheel {
+    width: 140px; height: 140px;
+    margin: 20px auto;
+    background: #000 !important;
+    border: 4px solid transparent !important;
+    border-image: linear-gradient(to bottom, var(--grad-start), var(--grad-end)) 1 !important;
+    border-radius: 50% !important; /* ホイールなので丸く */
+    display: flex; align-items: center; justify-content: center;
+    font-size: 3rem; font-weight: bold;
+}
+
+/* 5. 入力フォーム */
+input[type="number"], input[type="text"], input[type="password"] {
+    background: #000 !important;
+    border: 1px solid var(--border-main) !important;
+    color: var(--text-green) !important;
+    padding: 12px !important; margin: 10px 0 !important;
+    width: 100% !important; outline: none; font-size: 1rem;
+}
+
+/* 6. ボタン */
+button, .btn-primary {
+    background: rgba(0,0,0,0.3) !important;
+    color: #fff !important;
+    border: 1px solid transparent !important;
+    border-image: linear-gradient(to bottom right, var(--grad-start), var(--grad-end)) 1 !important;
+    padding: 15px !important; font-weight: bold;
+    cursor: pointer; text-transform: uppercase;
+    width: 100% !important; margin: 8px 0 !important;
+    transition: all 0.2s;
+}
+button:hover { background: rgba(0, 136, 170, 0.2) !important; }
+.btn-cashout, .bet-btn.red {
+    border-image: linear-gradient(to bottom right, var(--accent-gold), #554400) 1 !important;
+    color: var(--accent-gold) !important;
+}
+
+/* 7. チャット・ランキング */
 #chat-log {
     background: #050505 !important;
-    border-radius: 8px !important;
-    height: 300px !important;
-    padding: 15px !important;
-    overflow-y: auto !important;
-    border: 1px solid var(--border-main) !important;
+    height: 350px !important; padding: 15px !important;
+    overflow-y: auto; border: 1px solid var(--border-main) !important;
 }
+.msg-box { margin: 8px 0; padding: 10px; border-radius: 4px; font-size: 0.9rem; }
+.msg-me { border-left: 3px solid var(--grad-start); background: rgba(0,136,170,0.1); color: #fff; }
+.msg-other { border-left: 3px solid #444; background: #1a1a1a; color: #bbb; }
 
-.msg-box {
-    margin: 6px 0 !important;
-    padding: 10px 15px !important;
-    border-radius: 8px !important;
-}
-.msg-me { background: var(--accent-green) !important; color: #000 !important; }
-.msg-other { background: #2a2a2a !important; color: #eee !important; }
-
-/* ヘッダー周り */
-header { padding: 20px; width: 100%; text-align: center; }
+/* 8. ヘッダー・メイン配置 */
+header { padding: 30px; width: 100%; text-align: center; }
 #chipBar {
-    background: var(--bg-panel);
-    padding: 12px 20px;
-    border-radius: 8px;
-    border-bottom: 3px solid var(--accent-green);
-    display: inline-block;
-    font-weight: bold;
+    border-bottom: 2px solid transparent;
+    border-image: linear-gradient(to right, var(--grad-start), var(--grad-end)) 1;
+    display: inline-block; padding: 10px 25px;
 }
-#chips { color: var(--accent-green); font-size: 1.5rem; }
+#chips { color: var(--grad-start); font-size: 1.6rem; font-weight: bold; }
 
-/* レイアウト調整 */
 main {
-    width: 100%;
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 10px;
-    padding: 20px;
+    width: 100%; max-width: 1200px;
+    display: flex; flex-wrap: wrap; justify-content: center;
+    gap: 15px; padding: 20px;
 }
+.chat-section { max-width: 1000px !important; flex: 1 1 100%; }
+
+/* 結果表示 */
+.result { font-weight: bold; margin: 10px 0; font-size: 1.1rem; }
+.win { color: var(--grad-start); }
+.lose { color: #ff4d6a; }
 </style>
 </head>
 <body>
@@ -754,6 +767,7 @@ socket.on('chat_history', (msgs) => {
 </script>
 </body>
 </html>
+
 
 
 
