@@ -193,6 +193,76 @@ io.on('connection', (socket) => {
         }
     });
 
+    // --- クラッシュ用：次の爆発倍率を決定する関数 ---
+const getCrashPoint = () => {
+    const r = Math.random();
+    // 3%の確率で即爆発(1.0x)、それ以外は計算で倍率を出す
+    if (r < 0.03) return 1.0; 
+    return parseFloat((0.99 / (1 - r)).toFixed(2));
+};
+
+// --- ルーレット用：当選番号を決める (0-36) ---
+const getRouletteResult = () => Math.floor(Math.random() * 37);
+
+io.on('connection', (socket) => {
+    // 【クラッシュ】ベット受付
+    socket.on('crash_bet', async ({ bet }) => {
+        const user = await User.findOne({ name: socket.data.userName });
+        if (!user || user.chips < bet || bet <= 0) return;
+
+        user.chips -= bet;
+        await user.save();
+
+        const crashPoint = getCrashPoint();
+        socket.emit('crash_start', { bet, crashPoint });
+        socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
+    });
+
+    // 【クラッシュ】利確（キャッシュアウト）
+    socket.on('crash_cashout', async ({ bet, multiplier }) => {
+        const user = await User.findOne({ name: socket.data.userName });
+        if (!user) return;
+
+        const winAmount = Math.floor(bet * multiplier);
+        user.chips += winAmount;
+        await user.save();
+
+        socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
+        broadcastRanking();
+    });
+
+    // 【ルーレット】ベット処理
+    socket.on('roulette_bet', async ({ bet, type }) => {
+        // type: 'red', 'black', 'even', 'odd', 'number_0', 'number_1' ...
+        const user = await User.findOne({ name: socket.data.userName });
+        if (!user || user.chips < bet || bet <= 0) return;
+
+        user.chips -= bet;
+        await user.save();
+
+        const resultNumber = getRouletteResult();
+        const redNumbers = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36];
+        const isRed = redNumbers.includes(resultNumber);
+
+        let isWin = false;
+        let payout = 0;
+
+        if (type === 'red' && isRed && resultNumber !== 0) { isWin = true; payout = bet * 2; }
+        else if (type === 'black' && !isRed && resultNumber !== 0) { isWin = true; payout = bet * 2; }
+        else if (type.startsWith('num_')) {
+            const chosen = parseInt(type.split('_')[1]);
+            if (chosen === resultNumber) { isWin = true; payout = bet * 36; }
+        }
+
+        if (isWin) user.chips += payout;
+        await user.save();
+
+        socket.emit('roulette_result', { resultNumber, isWin, payout, newChips: user.chips });
+        socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
+        broadcastRanking();
+    });
+});
+
     // クリッカー換金
     socket.on('exchange_request', async (data) => {
         const user = await User.findOne({ name: socket.data.userName });
@@ -236,3 +306,4 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, "0.0.0.0", () => {
     console.log(`🚀 Server running on port ${PORT}`);
 });
+
