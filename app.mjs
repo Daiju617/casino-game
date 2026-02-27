@@ -213,7 +213,6 @@ const getCrashPoint = () => {
 // --- ルーレット用：当選番号を決める (0-36) ---
 const getRouletteResult = () => Math.floor(Math.random() * 37);
 
-io.on('connection', (socket) => {
     // 【クラッシュ】ベット受付
     socket.on('crash_bet', async ({ bet }) => {
         const user = await User.findOne({ name: socket.data.userName });
@@ -238,8 +237,7 @@ io.on('connection', (socket) => {
         
     // ...既存の処理...
     sendBotMsg(`${socket.data.userName} が ${multiplier.toFixed(2)}x で利確！ +${Math.floor(bet * multiplier)}枚`);
-});
-    
+
         socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
         broadcastRanking();
     });
@@ -324,5 +322,6 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, "0.0.0.0", () => {
     console.log(`🚀 Server running on port ${PORT}`);
 });
+
 
 
