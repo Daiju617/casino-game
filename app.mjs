@@ -226,7 +226,7 @@ const getRouletteResult = () => Math.floor(Math.random() * 37);
         socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
     });
 
-    // 【クラッシュ】利確（キャッシュアウト）
+// 【クラッシュ】利確（キャッシュアウト）
     socket.on('crash_cashout', async ({ bet, multiplier }) => {
         const user = await User.findOne({ name: socket.data.userName });
         if (!user) return;
@@ -235,8 +235,7 @@ const getRouletteResult = () => Math.floor(Math.random() * 37);
         user.chips += winAmount;
         await user.save();
         
-    // ...既存の処理...
-    sendBotMsg(`${socket.data.userName} が ${multiplier.toFixed(2)}x で利確！ +${Math.floor(bet * multiplier)}枚`);
+        sendBotMsg(`${socket.data.userName} が ${multiplier.toFixed(2)}x で利確！ +${winAmount}枚`);
 
         socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
         broadcastRanking();
@@ -244,7 +243,6 @@ const getRouletteResult = () => Math.floor(Math.random() * 37);
 
     // 【ルーレット】ベット処理
     socket.on('roulette_bet', async ({ bet, type }) => {
-        // type: 'red', 'black', 'even', 'odd', 'number_0', 'number_1' ...
         const user = await User.findOne({ name: socket.data.userName });
         if (!user || user.chips < bet || bet <= 0) return;
 
@@ -265,19 +263,16 @@ const getRouletteResult = () => Math.floor(Math.random() * 37);
             if (chosen === resultNumber) { isWin = true; payout = bet * 36; }
         }
 
-        if (isWin) user.chips += payout;
-        await user.save();
-
-        // --- [roulette_result の直前に追加] ---
-if (isWin) {
-    sendBotMsg(`🎉 【ルーレット】 ${socket.data.userName} が当選！ ${payout}枚獲得！`);
-}
+        if (isWin) {
+            user.chips += payout;
+            await user.save();
+            sendBotMsg(`🎉 【ルーレット】 ${user.name} が当選！ ${payout}枚獲得！`);
+        }
 
         socket.emit('roulette_result', { resultNumber, isWin, payout, newChips: user.chips });
         socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
         broadcastRanking();
     });
-});
 
     // クリッカー換金
     socket.on('exchange_request', async (data) => {
@@ -322,6 +317,7 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, "0.0.0.0", () => {
     console.log(`🚀 Server running on port ${PORT}`);
 });
+
 
 
 
