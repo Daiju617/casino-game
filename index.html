@@ -328,6 +328,51 @@ body.clicker-mode button {
         <div id="hlRes" class="result"></div>
     </div>
 
+    <div class="game-card crash-card">
+    <h2>🚀 CRASH <span id="crash-status" style="font-size: 0.5em; color: #ff00ff;">READY</span></h2>
+    <div class="crash-main">
+        <div id="crash-multiplier">1.00x</div>
+        <canvas id="crash-chart" width="300" height="150"></canvas>
+    </div>
+    <div class="controls">
+        <input type="number" id="crash-bet" placeholder="賭け金">
+        <button id="crash-action-btn" class="btn-primary" onclick="handleCrashAction()">BET</button>
+    </div>
+</div>
+
+<hr>
+
+<div class="game-card roulette-card">
+    <h2>🎡 ROULETTE</h2>
+    <div id="roulette-wheel">
+        <div id="roulette-ball">?</div>
+    </div>
+    <div class="roulette-board">
+        <div class="board-row">
+            <button class="bet-btn red" onclick="betR('red')">RED (x2)</button>
+            <button class="bet-btn black" onclick="betR('black')">BLACK (x2)</button>
+        </div>
+        <div class="board-row">
+            <input type="number" id="roulette-num" min="0" max="36" placeholder="数字(0-36)">
+            <button class="btn-primary" onclick="betR('number')">数字に賭ける (x36)</button>
+        </div>
+        <input type="number" id="roulette-bet" placeholder="賭け金">
+    </div>
+</div>
+
+<style>
+    .game-card { background: #1a1a1a; border: 2px solid #333; border-radius: 15px; padding: 20px; margin: 10px; text-align: center; color: white; }
+    #crash-multiplier { font-size: 3rem; font-weight: bold; color: #00ff00; text-shadow: 0 0 10px #00ff00; margin: 10px 0; }
+    .btn-primary { background: #00ff00; color: #000; font-weight: bold; padding: 15px 30px; border-radius: 5px; cursor: pointer; width: 100%; }
+    .btn-cashout { background: #ffaa00; color: #000; } /* 利確ボタンの色 */
+    
+    /* ルーレット盤の装飾 */
+    .bet-btn { padding: 10px; border: none; border-radius: 5px; cursor: pointer; color: white; font-weight: bold; width: 45%; }
+    .red { background: #d40000; box-shadow: 0 4px #8b0000; }
+    .black { background: #222; box-shadow: 0 4px #000; }
+    #roulette-wheel { font-size: 2.5rem; background: #004d00; border: 5px solid #ffd700; border-radius: 50%; width: 100px; height: 100px; line-height: 100px; margin: 10px auto; }
+</style>
+
     <div class="section">
     <div class="section-title"><span class="label">ATM / 闇金窓口</span></div>
     <div style="font-size: 1.4rem; margin: 10px 0;">BANK: <span id="bankBalance" style="color:#fcee0a;">0</span></div>
@@ -684,6 +729,73 @@ socket.on('hl_result', d => {
     if(d.newChips !== undefined) updateChips(d.newChips);
 });
 
+let isCrashing = false;
+let currentMult = 1.0;
+let crashInt;
+
+// --- CRASH ---
+function handleCrashAction() {
+    const btn = document.getElementById('crash-action-btn');
+    const bet = parseInt(document.getElementById('crash-bet').value);
+
+    if (!isCrashing) {
+        // BETフェーズ
+        if (!bet || bet <= 0) return alert("賭け金を入れて！");
+        socket.emit('crash_bet', { bet });
+        btn.innerText = "WAITING...";
+        btn.disabled = true;
+    } else {
+        // CASHOUTフェーズ（利確！）
+        socket.emit('crash_cashout', { bet, multiplier: currentMult });
+        stopCrashLocal("利確成功！");
+    }
+}
+
+socket.on('crash_start', ({ bet, crashPoint }) => {
+    isCrashing = true;
+    currentMult = 1.0;
+    const btn = document.getElementById('crash-action-btn');
+    btn.disabled = false;
+    btn.innerText = "CASH OUT"; // ここで利確ボタンに変わる
+    btn.classList.add('btn-cashout');
+
+    crashInt = setInterval(() => {
+        currentMult += 0.01;
+        document.getElementById('crash-multiplier').innerText = currentMult.toFixed(2) + "x";
+
+        if (currentMult >= crashPoint) {
+            stopCrashLocal("💥 CRASHED!");
+        }
+    }, 100);
+});
+
+function stopCrashLocal(msg) {
+    clearInterval(crashInt);
+    isCrashing = false;
+    const btn = document.getElementById('crash-action-btn');
+    btn.innerText = "BET";
+    btn.classList.remove('btn-cashout');
+    document.getElementById('crash-status').innerText = msg;
+}
+
+// --- ROULETTE ---
+function betR(mode) {
+    const bet = parseInt(document.getElementById('roulette-bet').value);
+    let type = mode;
+    if (mode === 'number') {
+        const num = document.getElementById('roulette-num').value;
+        if (num === "") return alert("数字を選んで！");
+        type = "num_" + num;
+    }
+    socket.emit('roulette_bet', { bet, type });
+    document.getElementById('roulette-ball').innerText = "🌀";
+}
+
+socket.on('roulette_result', (data) => {
+    document.getElementById('roulette-ball').innerText = data.resultNumber;
+    if (data.isWin) alert(`勝利！ ${data.payout}枚獲得！`);
+});
+    
 // 7. ランキング（HTMLの id="rList" に合わせました）
 socket.on('update_ranking', list => {
     const container = document.getElementById('rList');
@@ -737,6 +849,7 @@ socket.on('chat_history', (msgs) => {
 </script>
 </body>
 </html>
+
 
 
 
