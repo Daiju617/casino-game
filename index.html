@@ -258,14 +258,18 @@ main {
 </div>
 
 <div class="game-card roulette-card">
-    <h2>🎡 ROULETTE</h2>
-    <div id="roulette-wheel">
-        <div id="roulette-ball">?</div>
+    <h2>ROULETTE</h2>
+    
+    <div style="display: flex; justify-content: center; margin: 20px 0;">
+        <div id="roulette-wheel" style="width: 100px; height: 100px; border: 2px solid var(--grad-start); border-radius: 50%; display: flex; align-items: center; justify-content: center; background: #000;">
+            <span id="roulette-ball" style="font-size: 2.5rem; font-weight: bold; color: #fff;">?</span>
+        </div>
     </div>
+
     <div class="roulette-board">
         <div class="board-row">
-            <button class="bet-btn red" onclick="betR('red')">RED (x2)</button>
-            <button class="bet-btn black" onclick="betR('black')">BLACK (x2)</button>
+            <button class="btn-primary btn-cashout" onclick="betR('red')">RED (x2)</button>
+            <button class="btn-primary" style="border-image: linear-gradient(to bottom right, #444, #111) 1 !important; color: #eee;" onclick="betR('black')">BLACK (x2)</button>
         </div>
         <div class="board-row">
             <input type="number" id="roulette-num" min="0" max="36" placeholder="数字(0-36)">
@@ -693,17 +697,32 @@ function stopCrashLocal(msg) {
     document.getElementById('crash-status').innerText = msg;
 }
 
-// --- ROULETTE ---
-function betR(mode) {
-    const bet = parseInt(document.getElementById('roulette-bet').value);
-    let type = mode;
-    if (mode === 'number') {
-        const num = document.getElementById('roulette-num').value;
-        if (num === "") return alert("数字を選んで！");
-        type = "num_" + num;
-    }
-    socket.emit('roulette_bet', { bet, type });
-    document.getElementById('roulette-ball').innerText = "🌀";
+function betR(type) {
+    const betInput = document.getElementById('roulette-bet');
+    const amount = parseInt(betInput.value);
+    
+    if (isNaN(amount) || amount <= 0) return alert("賭け金を入力してください");
+
+    // 演出中（ぐるぐる）の間、ボタンを無効化
+    const ball = document.getElementById('roulette-ball');
+    
+    // 1. 数字をシャッフルする演出
+    let count = 0;
+    let timer = setInterval(() => {
+        ball.innerText = Math.floor(Math.random() * 37);
+        count++;
+        if (count > 20) { // 20回シャッフルしたら停止
+            clearInterval(timer);
+            
+            // 2. ここで最終結果を確定
+            const result = Math.floor(Math.random() * 37);
+            ball.innerText = result;
+
+            // 3. 演出が終わってからサーバーへ送る、または判定を出す
+            // socket.emit('roulette_bet', { type, amount, number: ... }); 
+            // ※判定ロジックをここに書くことで、alertが演出の後に出るようになります
+        }
+    }, 50);
 }
 
 socket.on('roulette_result', (data) => {
@@ -764,6 +783,7 @@ socket.on('chat_history', (msgs) => {
 </script>
 </body>
 </html>
+
 
 
 
