@@ -68,18 +68,29 @@ body::before {
     100% { transform: translateY(-1000px); }
 }
 
-       /* ログイン画面を最前面に、かつ火の粉に邪魔させない */
+/* ログイン画面を全画面で一番上に持ってくる */
 .login-section {
-    position: relative;
-    z-index: 100; 
-    margin-top: 50px !important; /* 少し下げて余裕を持たせる */
-}
-
-/* ゲーム画面全体を整える */
-main {
+    position: fixed; /* 画面に固定 */
+    inset: 0;        /* 上下左右0px（全画面） */
+    z-index: 9999;   /* 何よりも上に表示 */
+    background: var(--bg-dark) !important; /* 背景を真っ暗にして下を隠す */
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
+    margin: 0 !important; /* 余計な隙間を消す */
+}
+
+/* ログインに成功して非表示（display: none）になったら、下のゲームが出る */
+
+/* ゲーム画面全体を整える */
+main {
+    width: 100%;
+    max-width: 1200px;
+    display: flex;
+    flex-direction: row; /* 横並びにするならこれ */
+    flex-wrap: wrap;
+    justify-content: center;
     gap: 20px;
 }
 /* ============================
@@ -295,9 +306,8 @@ button:hover {
    8. ヘッダー・メイン
 ============================ */
 header {
-    padding: 30px;
-    width: 100%;
-    text-align: center;
+    margin-top: 50px; /* 火の粉に被らないよう少し下げる */
+    z-index: 10;
 }
 
 #chipBar {
@@ -1007,6 +1017,7 @@ socket.on('chat_history', (msgs) => {
 </script>
 </body>
 </html>
+
 
 
 
