@@ -919,26 +919,34 @@ socket.on('hl_setup', d => {
 });
 
 socket.on('hl_result', d => {
+    // 1. カードの描画
     if (d.oldCard) renderCards('hlCurrent', [d.oldCard]); 
+    
     const res = document.getElementById('hlRes');
     const bet = document.getElementById('hlBet').value;
 
+    // 2. 勝敗判定とデカ文字演出
     if (d.win === true) {
-        // 成功時：画面中央に演出を出し、下の文字も更新
-        showMegaResult(true, "継続中"); 
+        // 成功（継続）時：緑の演出
+        showMegaResult(true, "成功！"); 
         res.textContent = "成功！継続中...";
         res.className = "result win";
     } else {
-        // 失敗時：画面中央に演出を出し、下の文字も更新
+        // 失敗（負け）時：赤の演出
         showMegaResult(false, bet);
         res.textContent = "失敗...";
         res.className = "result lose";
         
+        // 失敗したのでボタンをリセット
         document.getElementById('hlInit').style.display = 'flex';
         document.getElementById('hlActions').style.display = 'none';
     }
-    if(d.newChips !== undefined) updateChips(d.newChips);
-});
+
+    // 3. チップデータの反映（ここがエラーの箇所）
+    if(d.newChips !== undefined) {
+        updateChips(d.newChips);
+    }
+}); // ← カッコの閉じ忘れがないか確認
 
 // 利確（COLLECT）ボタンを押した時
 socket.on('hl_collect_success', d => {
@@ -1147,6 +1155,7 @@ socket.on('chat_history', (msgs) => {
 </script>
 </body>
 </html>
+
 
 
 
