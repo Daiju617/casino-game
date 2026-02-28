@@ -100,17 +100,16 @@ body::before {
 
 /* 1. クラス名(.login-section)ではなく、HTMLにあるID名(#loginOverlay)に合わせる */
 #loginOverlay {
-    display: flex !important; 
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    position: fixed; 
+    position: fixed !important;
     top: 0;
     left: 0;
     width: 100vw;
     height: 100vh;
-    z-index: 200000; /* 演出用の overlay(100000) よりさらに上に設定 */
-    background-color: #000 !important;
+    background: #000 !important; /* 背景を真っ黒にしてゲーム画面を隠す */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 999999 !important; /* 最前面に持ってくる */
 }
 
 /* 3. 中にあるカード(class="section")のデザイン */
@@ -395,16 +394,15 @@ main {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    z-index: 100000; /* 何よりも手前 */
+    z-index: 100000;
     font-family: 'Noto Sans JP', sans-serif !important;
-    font-size: 4rem;
+    font-size: 5rem;
     font-weight: 900;
     text-align: center;
-    line-height: 1.2;
-    pointer-events: none; /* クリックを邪魔しない */
+    line-height: 1.1;
+    pointer-events: none;
     opacity: 0;
-    white-space: pre-wrap; /* 改行を有効にする */
-    text-shadow: 0 0 20px rgba(0,0,0,0.5);
+    white-space: pre-wrap;
 }
 
 /* フェードイン・アウトのアニメーション */
@@ -428,13 +426,18 @@ main {
     <div id="game-result-overlay"></div>
 
 <div id="loginOverlay">
-    <div class="section" style="width:320px; border-top: 4px solid var(--accent-green); background: #1a1a1a;">
-<button type="button" onclick="login()" style="width:100%; background:#00ff66; color:#000; font-weight:bold; padding:12px; cursor:pointer; border:none;">ACCESS SYSTEM</button>
+    <div id="game-result-overlay"></div>
+
+    <div class="section" style="width:320px; border-top: 4px solid #00ff66; background: #1a1a1a; padding: 25px; box-shadow: 0 0 50px rgba(0,0,0,0.8); z-index: 1000000;">
+        <h2 style="color:#00ff66; text-align:center; letter-spacing: 2px; margin-bottom:20px; font-family: 'Noto Sans JP', sans-serif !important;">SYSTEM ACCESS</h2>
+        
         <div style="margin-top:20px;">
-            <input type="text" id="uName" placeholder="PLAYER NAME" style="width:100%; margin-bottom:10px; background:#000; border:1px solid #444; color:#00ff00; padding:10px;">
-            <input type="password" id="uPass" placeholder="PASSWORD" style="width:100%; margin-bottom:20px; background:#000; border:1px solid #444; color:#00ff00; padding:10px;">
+            <input type="text" id="uName" placeholder="PLAYER NAME" style="width:100%; margin-bottom:10px; background:#000; border:1px solid #444; color:#00ff00; padding:12px; outline: none;">
+            <input type="password" id="uPass" placeholder="PASSWORD" style="width:100%; margin-bottom:20px; background:#000; border:1px solid #444; color:#00ff00; padding:12px; outline: none;">
             
-            <button onclick="login()" style="width:100%; background:var(--accent-green); color:#000; font-weight:bold; padding:12px;">ACCESS SYSTEM</button>
+            <button type="button" onclick="login()" style="width:100%; background:#00ff66; color:#000; font-weight:bold; padding:15px; cursor:pointer; border:none; text-transform:uppercase; letter-spacing:1px;">
+                ACCESS SYSTEM
+            </button>
             
             <p id="err" style="color:#ff4d6a; font-size:0.8rem; margin-top:15px; text-align:center; min-height:1.2em;"></p>
         </div>
@@ -1144,6 +1147,7 @@ socket.on('chat_history', (msgs) => {
 </script>
 </body>
 </html>
+
 
 
 
