@@ -387,58 +387,52 @@ main {
 .win { color: #ffb300; }
 .lose { color: #ff4d6a; }
 
-       @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@900&display=swap');
 
 #game-result-overlay {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 100000;
+    position: fixed !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    z-index: 2000000;
+    pointer-events: none;
     font-family: 'Noto Sans JP', sans-serif !important;
     font-size: 5rem;
     font-weight: 900;
     text-align: center;
     line-height: 1.1;
-    pointer-events: none;
-    opacity: 0;
     white-space: pre-wrap;
+    opacity: 0;
 }
 
-/* フェードイン・アウトのアニメーション */
-.show-result {
-    animation: fade-burn 2.5s forwards;
-}
-
+.show-result { animation: fade-burn 2.5s forwards; }
 @keyframes fade-burn {
     0% { opacity: 0; transform: translate(-50%, -40%) scale(0.8); filter: blur(10px); }
-    20% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); filter: blur(0px); }
-    80% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    15% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); filter: blur(0px); }
+    85% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
     100% { opacity: 0; transform: translate(-50%, -60%) scale(1.2); filter: blur(20px); }
 }
-
-.res-win { color: #00ff66; text-shadow: 0 0 30px rgba(0,255,102,0.6); }
-.res-lose { color: #ff3300; text-shadow: 0 0 30px rgba(255,51,0,0.6); }
+.res-win { color: #00ff66; text-shadow: 0 0 30px rgba(0,255,102,0.8); }
+.res-lose { color: #ff3300; text-shadow: 0 0 30px rgba(255,51,0,0.8); }
 </style>
 </head>
 <body>
 
-<div id="loginOverlay" style="position:fixed; inset:0; background:#000; z-index:999999; display:flex; align-items:center; justify-content:center;">
-    <div style="width:320px; border-top: 4px solid #00ff66; background: #1a1a1a; padding: 25px; text-align:center;">
-        <h2 style="color:#00ff66; margin-bottom:20px;">SYSTEM ACCESS</h2>
-        
-        <input type="text" id="uName" placeholder="PLAYER NAME" style="width:100%; margin-bottom:10px; background:#000; border:1px solid #444; color:#00ff00; padding:12px;">
-        <input type="password" id="uPass" placeholder="PASSWORD" style="width:100%; margin-bottom:20px; background:#000; border:1px solid #444; color:#00ff00; padding:12px;">
-        
-        <button type="button" onclick="login()" style="width:100%; background:#00ff66; color:#000; font-weight:bold; padding:15px; cursor:pointer; border:none; display:block;">
-            ACCESS SYSTEM
-        </button>
-        
-        <p id="err" style="color:#ff4d6a; font-size:0.8rem; margin-top:15px; min-height:1.2em;"></p>
+<div id="loginOverlay">
+    <div style="width:320px; background: #1a1a1a; padding: 25px; border-top: 4px solid var(--accent-green);">
+        <h2 style="text-align:center; color:var(--accent-green);">SYSTEM ACCESS</h2>
+        <div style="margin-top:20px;">
+            <input type="text" id="uName" placeholder="PLAYER NAME" style="width:100%; margin-bottom:10px; background:#000; border:1px solid #444; color:#00ff00; padding:10px;">
+            <input type="password" id="uPass" placeholder="PASSWORD" style="width:100%; margin-bottom:20px; background:#000; border:1px solid #444; color:#00ff00; padding:10px;">
+            
+            <button type="button" onclick="login()" style="width:100%; background:var(--accent-green); color:#000; font-weight:bold; padding:12px; cursor:pointer; border:none;">
+                ACCESS SYSTEM
+            </button>
+            
+            <p id="err" style="color:#ff4d6a; font-size:0.8rem; margin-top:15px; text-align:center; min-height:1.2em;"></p>
+        </div>
     </div>
 </div>
-
-<div id="game-result-overlay"></div>
 
 <header>
     <h1><span>YAWATA</span> CASINO</h1>
@@ -631,19 +625,14 @@ function updateChips(amount) {
 function showMegaResult(isWin, amount) {
     const el = document.getElementById('game-result-overlay');
     if (!el) return;
-    
     el.classList.remove('show-result', 'res-win', 'res-lose');
-    
     const title = isWin ? "勝利" : "敗北";
     const sub = isWin ? `${amount} 獲得` : `${amount} 消失`;
     el.innerText = `${title}\n${sub}`;
-    
     el.classList.add(isWin ? 'res-win' : 'res-lose');
-    
-    void el.offsetWidth; // アニメーションリセット
+    void el.offsetWidth;
     el.classList.add('show-result');
 }
-
 // 2. ログイン（HTMLの id="uName", id="uPass" に合わせました）
 // ログイン関数
 function login() {
@@ -1149,8 +1138,10 @@ socket.on('chat_history', (msgs) => {
 });
     
 </script>
+<div id="game-result-overlay"></div>
 </body>
 </html>
+
 
 
 
