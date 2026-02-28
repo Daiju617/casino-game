@@ -92,16 +92,17 @@ h1, h2, .section-title {
     font-size: 2.5rem; border-radius: 8px;
 }
 
-/* --- ルーレットホイール --- */
+/* ここを修正：!importantを外すか、背景色を透明にする */
 #roulette-wheel {
-    width: 140px; height: 140px;
-    margin: 20px auto;
-    background: #000 !important;
-    border: 4px solid transparent !important;
-    border-image: linear-gradient(to bottom, var(--grad-start), var(--grad-end)) 1 !important;
-    border-radius: 50% !important; /* ホイールなので丸く */
-    display: flex; align-items: center; justify-content: center;
-    font-size: 3rem; font-weight: bold;
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    border: 3px solid var(--grad-start); /* 枠だけグラデーション */
+    background-color: #000; /* デフォルトは黒 */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.1s; /* 色の変化を滑らかに */
 }
 
 /* 5. 入力フォーム */
@@ -812,6 +813,7 @@ socket.on('chat_history', (msgs) => {
 </script>
 </body>
 </html>
+
 
 
 
