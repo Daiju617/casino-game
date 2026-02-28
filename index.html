@@ -633,18 +633,17 @@ function updateChips(amount) {
     // 演出用関数（これを使い回す）
 function showMegaResult(isWin, amount) {
     const el = document.getElementById('game-result-overlay');
+    if (!el) return;
+    
     el.classList.remove('show-result', 'res-win', 'res-lose');
     
-    // 文字の設定
     const title = isWin ? "勝利" : "敗北";
     const sub = isWin ? `${amount} 獲得` : `${amount} 消失`;
     el.innerText = `${title}\n${sub}`;
     
-    // 色の設定
     el.classList.add(isWin ? 'res-win' : 'res-lose');
     
-    // アニメーション開始（リフローを起こして再描画）
-    void el.offsetWidth; 
+    void el.offsetWidth; // アニメーションリセット
     el.classList.add('show-result');
 }
 
@@ -866,10 +865,15 @@ socket.on('bj_update', d => {
 socket.on('bj_result', d => {
     renderCards('bjPCards', d.player);
     renderCards('bjDCards', d.dealer);
+    
+    const bet = document.getElementById('bjBet').value;
+    const isWin = d.msg.includes("WIN") || d.msg.includes("勝利");
+    
+    // 勝っても負けても中央演出を出す
+    showMegaResult(isWin, isWin ? "配当" : bet);
+
     const res = document.getElementById('bjRes');
     res.textContent = d.msg;
-    res.className = "result " + (d.msg.includes("WIN") ? "win" : "lose");
-
     updateChips(d.newChips);
     document.getElementById('bjInit').style.display = 'flex';
     document.getElementById('bjActions').style.display = 'none';
@@ -905,33 +909,31 @@ socket.on('hl_setup', d => {
 });
 
 socket.on('hl_result', d => {
-    // 安全装置：カードデータがある時だけ描画（これで rank undefined エラーを阻止）
-    if (d.oldCard) {
-        renderCards('hlCurrent', [d.oldCard]); 
-    }
-
+    if (d.oldCard) renderCards('hlCurrent', [d.oldCard]); 
     const res = document.getElementById('hlRes');
-    res.textContent = d.msg;
-    
-    // d.win が true なら継続、false なら終了
+    const bet = document.getElementById('hlBet').value;
+
     if (d.win === true) {
-        res.className = "result win"; // 勝利（青/緑）
-        const collectBtn = document.querySelector("button[onclick='collectHL()']");
-        if(collectBtn) {
-            collectBtn.style.opacity = "1";
-            collectBtn.disabled = false;
-        }
+        // 成功時：画面中央に演出を出し、下の文字も更新
+        showMegaResult(true, "継続中"); 
+        res.textContent = "成功！継続中...";
+        res.className = "result win";
     } else {
-        res.className = "result lose"; // 敗北（赤）
+        // 失敗時：画面中央に演出を出し、下の文字も更新
+        showMegaResult(false, bet);
+        res.textContent = "失敗...";
+        res.className = "result lose";
+        
         document.getElementById('hlInit').style.display = 'flex';
         document.getElementById('hlActions').style.display = 'none';
-        
-        const collectBtn = document.querySelector("button[onclick='collectHL()']");
-        if(collectBtn) {
-            collectBtn.style.opacity = "0.3";
-            collectBtn.disabled = true;
-        }
     }
+    if(d.newChips !== undefined) updateChips(d.newChips);
+});
+
+// 利確（COLLECT）ボタンを押した時
+socket.on('hl_collect_success', d => {
+    showMegaResult(true, d.winAmount); // 「勝利 ○○獲得」を表示
+});
 
     if(d.newChips !== undefined) updateChips(d.newChips);
 });
@@ -990,12 +992,14 @@ function stopCrashLocal(msg) {
     document.getElementById('crash-status').innerText = msg;
 
     if (msg.includes("CRASHED")) {
-        showMegaResult(false, document.getElementById('crash-bet').value);
+        const bet = document.getElementById('crash-bet').value;
+        showMegaResult(false, bet); // 敗北演出
     }
 }
-// 利確成功時
+
+// 利確（成功）したとき
 socket.on('crash_cashout_success', d => {
-    showMegaResult(true, d.winAmount); 
+    showMegaResult(true, d.winAmount); // 勝利演出
     stopCrashLocal("利確成功！");
 });
 
@@ -1133,6 +1137,7 @@ socket.on('chat_history', (msgs) => {
 </script>
 </body>
 </html>
+
 
 
 
