@@ -100,19 +100,17 @@ body::before {
 
 /* 1. クラス名(.login-section)ではなく、HTMLにあるID名(#loginOverlay)に合わせる */
 #loginOverlay {
-    display: flex; 
+    display: flex !important; 
     flex-direction: column;
     align-items: center;
     justify-content: center;
-
-    /* 2. 「タイトルの上」に出ないように全画面固定にする */
     position: fixed; 
     top: 0;
     left: 0;
     width: 100vw;
     height: 100vh;
-    z-index: 99999; 
-    background-color: var(--bg-dark) !important; /* 背景を真っ暗にして下を隠す */
+    z-index: 200000; /* 演出用の overlay(100000) よりさらに上に設定 */
+    background-color: #000 !important;
 }
 
 /* 3. 中にあるカード(class="section")のデザイン */
@@ -431,7 +429,7 @@ main {
 
 <div id="loginOverlay">
     <div class="section" style="width:320px; border-top: 4px solid var(--accent-green); background: #1a1a1a;">
-        <h2 style="color:var(--accent-green); text-align:center; letter-spacing: 2px; margin-bottom:20px;">SYSTEM ACCESS</h2>
+<button type="button" onclick="login()" style="width:100%; background:#00ff66; color:#000; font-weight:bold; padding:12px; cursor:pointer; border:none;">ACCESS SYSTEM</button>
         <div style="margin-top:20px;">
             <input type="text" id="uName" placeholder="PLAYER NAME" style="width:100%; margin-bottom:10px; background:#000; border:1px solid #444; color:#00ff00; padding:10px;">
             <input type="password" id="uPass" placeholder="PASSWORD" style="width:100%; margin-bottom:20px; background:#000; border:1px solid #444; color:#00ff00; padding:10px;">
@@ -648,6 +646,7 @@ function showMegaResult(isWin, amount) {
 }
 
 // 2. ログイン（HTMLの id="uName", id="uPass" に合わせました）
+// ログイン関数
 function login() {
     const name = document.getElementById('uName').value;
     const password = document.getElementById('uPass').value;
@@ -657,19 +656,27 @@ function login() {
         err.textContent = "名前とパスワードを入力してください";
         return;
     }
+    console.log("Login attempt:", name); // デバッグ用
     socket.emit('login_request', { name: name, password: password });
 }
 
+// ログイン成功時の処理
 socket.on('login_success', d => {
-    myName = d.name; // ← これを追加！(ここで自分の名前を「箱」に保存します)
-    document.getElementById('loginOverlay').style.display = 'none';
+    console.log("Login success!", d);
+    myName = d.name;
+    
+    // ログイン画面を完全に消す
+    const overlay = document.getElementById('loginOverlay');
+    if (overlay) {
+        overlay.style.setProperty('display', 'none', 'important');
+    }
+    
+    // データの反映
     document.getElementById('myName').textContent = d.name;
-    document.getElementById('bankBalance').textContent = d.bank || 0;
+    if(document.getElementById('bankBalance')) {
+        document.getElementById('bankBalance').textContent = d.bank || 0;
+    }
     updateChips(d.chips);
-});
-
-socket.on('login_error', msg => {
-    document.getElementById('err').textContent = msg;
 });
 
     let score = 0;
@@ -1137,6 +1144,7 @@ socket.on('chat_history', (msgs) => {
 </script>
 </body>
 </html>
+
 
 
 
