@@ -44,28 +44,58 @@ body {
     100% { background-position: 50% 120%; }
 }
 
-/* 🔥 火の粉レイヤー（金玉地獄・脱出版） */
+/* 🔥 火の粉レイヤー（高密度・業火版） */
 body::before {
     content: "";
     position: fixed;
     inset: 0;
     pointer-events: none;
-    z-index: -1; /* これでログイン画面の下に潜り込ませる */
-    
-    /* 粒の数を減らし、一つ一つを「光の粉」にする */
+    z-index: -1;
+
+    /* 3層のグラデーションを重ねて密度を爆上げする */
     background-image: 
-        radial-gradient(1px 1px at 10% 20%, rgba(255, 150, 0, 0.8), transparent),
-        radial-gradient(2px 2px at 50% 50%, rgba(255, 100, 0, 0.5), transparent),
-        radial-gradient(1.5px 1.5px at 80% 80%, rgba(255, 200, 0, 0.6), transparent);
+        /* 層1：細かい粒（密度高め） */
+        radial-gradient(1.5px 1.5px at 10% 10%, rgba(255, 150, 0, 0.9), transparent),
+        radial-gradient(1.5px 1.5px at 30% 50%, rgba(255, 150, 0, 0.9), transparent),
+        radial-gradient(1.5px 1.5px at 50% 20%, rgba(255, 150, 0, 0.9), transparent),
+        radial-gradient(1.5px 1.5px at 70% 80%, rgba(255, 150, 0, 0.9), transparent),
+        radial-gradient(1.5px 1.5px at 90% 40%, rgba(255, 150, 0, 0.9), transparent),
+
+        /* 層2：中くらいの粒（少し明るめ） */
+        radial-gradient(2.5px 2.5px at 15% 75%, rgba(255, 200, 0, 0.8), transparent),
+        radial-gradient(2.5px 2.5px at 40% 15%, rgba(255, 200, 0, 0.8), transparent),
+        radial-gradient(2.5px 2.5px at 65% 85%, rgba(255, 200, 0, 0.8), transparent),
+        radial-gradient(2.5px 2.5px at 85% 30%, rgba(255, 200, 0, 0.8), transparent),
+
+        /* 層3：少し大きめの粒（奥の方で光るイメージ） */
+        radial-gradient(3px 3px at 25% 45%, rgba(255, 100, 0, 0.6), transparent),
+        radial-gradient(3px 3px at 75% 65%, rgba(255, 100, 0, 0.6), transparent);
+
+    /* サイズを少し小さくして、リピート回数を増やす（＝粒が増える） */
+    background-size: 600px 600px; 
     
-    background-size: 1000px 1000px; /* ここを巨大にするのがポイント！ */
-    animation: sparks 20s linear infinite;
-    opacity: 0.6;
+    /* アニメーション速度を少し早くして、躍動感を出す */
+    animation: sparks 15s linear infinite;
+    opacity: 0.7; /* 透明度を少し上げて、よりはっきりと */
 }
 
+/* 🔥 火の粉の「うねうね」アニメーション */
 @keyframes sparks {
-    0% { transform: translateY(0); }
-    100% { transform: translateY(-1000px); }
+    0% {
+        transform: translateY(0) translateX(0);
+    }
+    25% {
+        transform: translateY(-250px) translateX(15px); /* 右にゆらり */
+    }
+    50% {
+        transform: translateY(-500px) translateX(-20px); /* 左にゆらり */
+    }
+    75% {
+        transform: translateY(-750px) translateX(10px);  /* また右にゆらり */
+    }
+    100% {
+        transform: translateY(-1000px) translateX(0);
+    }
 }
 
 /* 1. クラス名(.login-section)ではなく、HTMLにあるID名(#loginOverlay)に合わせる */
@@ -359,9 +389,45 @@ main {
 
 .win { color: #ffb300; }
 .lose { color: #ff4d6a; }
+
+       @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@900&display=swap');
+
+#game-result-overlay {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 100000; /* 何よりも手前 */
+    font-family: 'Noto Sans JP', sans-serif !important;
+    font-size: 4rem;
+    font-weight: 900;
+    text-align: center;
+    line-height: 1.2;
+    pointer-events: none; /* クリックを邪魔しない */
+    opacity: 0;
+    white-space: pre-wrap; /* 改行を有効にする */
+    text-shadow: 0 0 20px rgba(0,0,0,0.5);
+}
+
+/* フェードイン・アウトのアニメーション */
+.show-result {
+    animation: fade-burn 2.5s forwards;
+}
+
+@keyframes fade-burn {
+    0% { opacity: 0; transform: translate(-50%, -40%) scale(0.8); filter: blur(10px); }
+    20% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); filter: blur(0px); }
+    80% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -60%) scale(1.2); filter: blur(20px); }
+}
+
+.res-win { color: #00ff66; text-shadow: 0 0 30px rgba(0,255,102,0.6); }
+.res-lose { color: #ff3300; text-shadow: 0 0 30px rgba(255,51,0,0.6); }
 </style>
 </head>
 <body>
+
+    <div id="game-result-overlay"></div>
 
 <div id="loginOverlay">
     <div class="section" style="width:320px; border-top: 4px solid var(--accent-green); background: #1a1a1a;">
@@ -564,6 +630,24 @@ function updateChips(amount) {
     }
 }
 
+    // 演出用関数（これを使い回す）
+function showMegaResult(isWin, amount) {
+    const el = document.getElementById('game-result-overlay');
+    el.classList.remove('show-result', 'res-win', 'res-lose');
+    
+    // 文字の設定
+    const title = isWin ? "勝利" : "敗北";
+    const sub = isWin ? `${amount} 獲得` : `${amount} 消失`;
+    el.innerText = `${title}\n${sub}`;
+    
+    // 色の設定
+    el.classList.add(isWin ? 'res-win' : 'res-lose');
+    
+    // アニメーション開始（リフローを起こして再描画）
+    void el.offsetWidth; 
+    el.classList.add('show-result');
+}
+
 // 2. ログイン（HTMLの id="uName", id="uPass" に合わせました）
 function login() {
     const name = document.getElementById('uName').value;
@@ -735,24 +819,29 @@ function stopReel(idx) {
     }
 }
 
-// 全リール停止後の処理
 function finishSpin() {
     const d = window.lastSpinData;
     document.getElementById('spinBtn').disabled = false;
     updateChips(d.newChips);
 
-    // WIN/LOSE表示
-    const res = document.getElementById('sRes');
-    res.textContent = d.win > 0 ? `WIN: ${d.win}枚！` : "LOSE";
-    res.className = "result " + (d.win > 0 ? "win" : "lose");
+    // デカ文字演出
+    const bet = document.getElementById('sBet').value;
+    if (d.win > 0) {
+        showMegaResult(true, d.win);
+    } else {
+        showMegaResult(false, bet);
+    }
 
-    // 1/50のペカり演出（777の時）
+    // ★GOGO!ランプ（ペカり）演出を保護
     if (finalResult.every(s => s === "7️⃣")) {
         const lamp = document.getElementById('gogoLamp');
         lamp.style.color = "#ff00ff";
-        lamp.style.textShadow = "0 0 10px #fff, 0 0 20px #ff00ff";
-        // ボーナス確定のSEやバイブをここに入れてもいいですね！
+        lamp.style.textShadow = "0 0 10px #fff, 0 0 20px #ff00ff, 0 0 40px #ff00ff";
     }
+
+    const res = document.getElementById('sRes');
+    res.textContent = d.win > 0 ? `WIN: ${d.win}枚！` : "LOSE";
+    res.className = "result " + (d.win > 0 ? "win" : "lose");
 }
     
 // 5. ブラックジャック（HTMLの id="bjDCards", id="bjPCards", id="bjPScore" に合わせました）
@@ -847,6 +936,10 @@ socket.on('hl_result', d => {
     if(d.newChips !== undefined) updateChips(d.newChips);
 });
 
+    socket.on('hl_collect_success', d => {
+    showMegaResult(true, d.winAmount);
+});
+    
 let isCrashing = false;
 let currentMult = 1.0;
 let crashInt;
@@ -887,6 +980,7 @@ socket.on('crash_start', ({ bet, crashPoint }) => {
     }, 100);
 });
 
+// クラッシュ（爆発時）
 function stopCrashLocal(msg) {
     clearInterval(crashInt);
     isCrashing = false;
@@ -894,7 +988,16 @@ function stopCrashLocal(msg) {
     btn.innerText = "BET";
     btn.classList.remove('btn-cashout');
     document.getElementById('crash-status').innerText = msg;
+
+    if (msg.includes("CRASHED")) {
+        showMegaResult(false, document.getElementById('crash-bet').value);
+    }
 }
+// 利確成功時
+socket.on('crash_cashout_success', d => {
+    showMegaResult(true, d.winAmount); 
+    stopCrashLocal("利確成功！");
+});
 
 function betR(type) {
     const betInput = document.getElementById('roulette-bet');
@@ -968,10 +1071,13 @@ socket.on('roulette_result', (data) => {
         }
     }
 
-    // 4. アラート（演出の最後に出る）
-    if (data.isWin) {
-        alert(`勝利！ ${data.payout}枚獲得！`);
-    }
+// alert(`勝利！ ${data.payout}枚獲得！`); の代わりに
+if (data.isWin) {
+    showMegaResult(true, data.payout);
+} else {
+    // 負けた時（ルーレットの負けデータがある場合）
+    // showMegaResult(false, 賭けた金額); 
+}
 });
     
 // 7. ランキング（HTMLの id="rList" に合わせました）
@@ -1027,6 +1133,7 @@ socket.on('chat_history', (msgs) => {
 </script>
 </body>
 </html>
+
 
 
 
