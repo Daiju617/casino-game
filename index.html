@@ -8,158 +8,319 @@
 :root {
     --bg-dark: #0f0f0f;
     --bg-panel: #1a1a1a;
-    --grad-start: #0088aa; /* 青緑 */
-    --grad-end: #005500;   /* 深緑 */
+    --grad-start: #0088aa;
+    --grad-end: #005500;
     --text-green: #00aa66;
     --accent-gold: #b58900;
     --text-main: #e0e0e0;
     --border-main: #333;
 }
 
-/* 1. ベースレイアウト */
-* { box-sizing: border-box; font-family: 'Consolas', 'Monaco', 'Courier New', monospace !important; }
+/* ============================
+   1. 全体：炎の世界観
+============================ */
+* {
+    box-sizing: border-box;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace !important;
+}
 
 body {
-    margin: 0; min-height: 100vh;
-    background-color: var(--bg-dark);
+    margin: 0;
+    min-height: 100vh;
     color: var(--text-main);
-    display: flex; flex-direction: column; align-items: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     letter-spacing: 0.05em;
+
+    /* 🔥 炎のゆらぎ背景 */
+    background: radial-gradient(circle at bottom,
+        #2b0d00 0%, #0f0a05 50%, #000 100%);
+    animation: flame-bg 6s ease-in-out infinite alternate;
 }
 
-#loginOverlay {
-    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    background: var(--bg-dark);
-    display: flex; justify-content: center; align-items: center;
-    z-index: 9999;
+@keyframes flame-bg {
+    0% { background-position: 50% 100%; }
+    100% { background-position: 50% 120%; }
 }
 
-/* 2. 各パネル・ゲームカードの外枠 */
+/* 🔥 火の粉レイヤー */
+body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+        radial-gradient(circle, rgba(255,150,0,0.8) 0%, rgba(255,80,0,0) 60%),
+        radial-gradient(circle, rgba(255,200,0,0.7) 0%, rgba(255,80,0,0) 60%),
+        radial-gradient(circle, rgba(255,120,0,0.6) 0%, rgba(255,80,0,0) 60%);
+    background-size: 4px 4px, 3px 3px, 2px 2px;
+    background-repeat: repeat;
+    animation: sparks 3s linear infinite;
+    opacity: 0.35;
+}
+
+@keyframes sparks {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(-120px); }
+}
+
+/* ============================
+   2. パネル・カード
+============================ */
 .section, .game-card, .chat-section, .crash-card, .roulette-card {
-    background: var(--bg-panel) !important;
+    background: rgba(20, 10, 5, 0.85) !important;
     border: 1px solid var(--border-main) !important;
+
+    /* 🔥 炎の縁取り */
     border-top: 3px solid transparent !important;
-    border-image: linear-gradient(to right, var(--grad-start), var(--grad-end)) 1 !important;
-    border-radius: 4px;
+    border-image: linear-gradient(
+        to right,
+        rgba(255,80,0,1),
+        rgba(255,160,0,0.9),
+        rgba(255,80,0,1)
+    ) 1 !important;
+
+    border-radius: 6px;
     padding: 25px !important;
     margin: 15px !important;
     width: 100% !important;
     max-width: 400px;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+
+    /* 🔥 熱気の影 */
+    box-shadow: 0 10px 40px rgba(255,80,0,0.25);
 }
 
-/* 3. タイトル */
+/* ============================
+   3. タイトル
+============================ */
 h1, h2, .section-title {
     font-size: 1.3rem !important;
     font-weight: bold;
     text-transform: uppercase;
     margin-bottom: 20px !important;
-    background: linear-gradient(to right, var(--grad-start), #fff);
+
+    /* 🔥 炎の光 */
+    background: linear-gradient(to right, #ffb300, #ff3b00);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
+    text-shadow: 0 0 10px rgba(255,120,0,0.4);
 }
 
-/* 4. ゲームパーツ（ここが抜けていました） */
+/* ============================
+   4. ゲーム UI
+============================ */
 
-/* --- トランプカード (BJ / HL) --- */
+/* --- トランプカード --- */
 .card-row {
-    display: flex; justify-content: center; gap: 10px;
-    margin: 20px 0; min-height: 100px;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin: 20px 0;
+    min-height: 100px;
 }
+
 .card-ui {
-    width: 65px; height: 95px;
-    background: #000 !important;
+    width: 65px;
+    height: 95px;
+    background: #1a0c07 !important;
     border: 1px solid transparent !important;
-    border-image: linear-gradient(to bottom, var(--grad-start), #000) 1 !important;
+
+    /* 🔥 炎の縦グラデ */
+    border-image: linear-gradient(to bottom, #ff6a00, #3a0d00) 1 !important;
+
     color: #fff !important;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 1.4rem; font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    font-weight: bold;
     border-radius: 4px;
+    box-shadow: 0 0 12px rgba(255,80,0,0.3);
 }
-.card-ui.red { color: #ff4d6a !important; } /* 赤スート用 */
-.card-ui.back { background: #111 !important; color: var(--grad-end) !important; } /* 裏面 */
+
+.card-ui.red { color: #ff4d6a !important; }
+.card-ui.back {
+    background: #110700 !important;
+    color: #ff6a00 !important;
+}
 
 /* --- スロットリール --- */
 .slot-frame {
-    display: flex; justify-content: center; gap: 15px; margin: 25px 0;
-}
-.slot-frame div {
-    width: 80px; height: 80px;
-    background: #000 !important;
-    border: 1px solid transparent !important;
-    border-image: linear-gradient(to bottom, var(--grad-start), #000) 1 !important;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 2.5rem; border-radius: 8px;
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin: 25px 0;
 }
 
-/* ここを修正：!importantを外すか、背景色を透明にする */
+.slot-frame div {
+    width: 80px;
+    height: 80px;
+    background: #1a0c07 !important;
+    border: 1px solid transparent !important;
+    border-image: linear-gradient(to bottom, #ff6a00, #3a0d00) 1 !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.5rem;
+    border-radius: 8px;
+    box-shadow: 0 0 15px rgba(255,80,0,0.3);
+}
+
+/* --- ルーレット外枠：JSの書き換えを許可しつつデザインを維持 --- */
 #roulette-wheel {
     width: 100px;
     height: 100px;
     border-radius: 50%;
-    border: 3px solid var(--grad-start); /* 枠だけグラデーション */
-    background-color: #000; /* デフォルトは黒 */
+    
+    /* JSが backgroundColor を変えた時、この transition で滑らかに光ります */
+    transition: all 0.2s ease-in-out;
+    
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: background-color 0.1s; /* 色の変化を滑らかに */
+    
+    /* デフォルトの状態（炎のベースカラー） */
+    background-color: #1a0c07;
+    border: 3px solid #ff6a00;
+    box-shadow: 0 0 20px rgba(255,80,0,0.4);
 }
 
-/* 5. 入力フォーム */
+/* JSが .style.backgroundColor を直接書き換える場合、
+   ブラウザはインラインスタイルとして処理します。
+   以下の設定により、文字色などは自動で読みやすく固定されます。
+*/
+#roulette-ball {
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: #ffffff !important;
+    text-shadow: 0 0 10px rgba(0,0,0,0.8);
+}
+
+/* ============================
+   5. 入力フォーム
+============================ */
 input[type="number"], input[type="text"], input[type="password"] {
-    background: #000 !important;
-    border: 1px solid var(--border-main) !important;
-    color: var(--text-green) !important;
-    padding: 12px !important; margin: 10px 0 !important;
-    width: 100% !important; outline: none; font-size: 1rem;
+    background: #1a0c07 !important;
+    border: 1px solid #442a1a !important;
+    color: #ffdd99 !important;
+    padding: 12px !important;
+    margin: 10px 0 !important;
+    width: 100% !important;
+    outline: none;
+    font-size: 1rem;
+    box-shadow: 0 0 8px rgba(255,120,0,0.2);
 }
 
-/* 6. ボタン */
+/* ============================
+   6. ボタン
+============================ */
 button, .btn-primary {
-    background: rgba(0,0,0,0.3) !important;
+    background: rgba(50,20,0,0.4) !important;
     color: #fff !important;
     border: 1px solid transparent !important;
-    border-image: linear-gradient(to bottom right, var(--grad-start), var(--grad-end)) 1 !important;
-    padding: 15px !important; font-weight: bold;
-    cursor: pointer; text-transform: uppercase;
-    width: 100% !important; margin: 8px 0 !important;
+
+    /* 🔥 炎の縁取り */
+    border-image: linear-gradient(to bottom right, #ff6a00, #ffb300) 1 !important;
+
+    padding: 15px !important;
+    font-weight: bold;
+    cursor: pointer;
+    text-transform: uppercase;
+    width: 100% !important;
+    margin: 8px 0 !important;
     transition: all 0.2s;
 }
-button:hover { background: rgba(0, 136, 170, 0.2) !important; }
+
+button:hover {
+    background: rgba(255,80,0,0.25) !important;
+    box-shadow: 0 0 15px rgba(255,120,0,0.6);
+    transform: translateY(-2px);
+}
+
 .btn-cashout, .bet-btn.red {
-    border-image: linear-gradient(to bottom right, var(--accent-gold), #554400) 1 !important;
+    border-image: linear-gradient(to bottom right, var(--accent-gold), #ff8800) 1 !important;
     color: var(--accent-gold) !important;
 }
 
-/* 7. チャット・ランキング */
+/* ============================
+   7. チャット
+============================ */
 #chat-log {
-    background: #050505 !important;
-    height: 350px !important; padding: 15px !important;
-    overflow-y: auto; border: 1px solid var(--border-main) !important;
+    background: #120700 !important;
+    height: 350px !important;
+    padding: 15px !important;
+    overflow-y: auto;
+    border: 1px solid #442a1a !important;
+    box-shadow: inset 0 0 10px rgba(255,80,0,0.2);
 }
-.msg-box { margin: 8px 0; padding: 10px; border-radius: 4px; font-size: 0.9rem; }
-.msg-me { border-left: 3px solid var(--grad-start); background: rgba(0,136,170,0.1); color: #fff; }
-.msg-other { border-left: 3px solid #444; background: #1a1a1a; color: #bbb; }
 
-/* 8. ヘッダー・メイン配置 */
-header { padding: 30px; width: 100%; text-align: center; }
+.msg-box {
+    margin: 8px 0;
+    padding: 10px;
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+.msg-me {
+    border-left: 3px solid #ff6a00;
+    background: rgba(255,120,0,0.15);
+    color: #fff;
+}
+
+.msg-other {
+    border-left: 3px solid #663300;
+    background: #1a0c07;
+    color: #ffddbb;
+}
+
+/* ============================
+   8. ヘッダー・メイン
+============================ */
+header {
+    padding: 30px;
+    width: 100%;
+    text-align: center;
+}
+
 #chipBar {
     border-bottom: 2px solid transparent;
-    border-image: linear-gradient(to right, var(--grad-start), var(--grad-end)) 1;
-    display: inline-block; padding: 10px 25px;
+    border-image: linear-gradient(to right, #ff6a00, #ffb300) 1;
+    display: inline-block;
+    padding: 10px 25px;
 }
-#chips { color: var(--grad-start); font-size: 1.6rem; font-weight: bold; }
+
+#chips {
+    color: #ff6a00;
+    font-size: 1.6rem;
+    font-weight: bold;
+}
 
 main {
-    width: 100%; max-width: 1200px;
-    display: flex; flex-wrap: wrap; justify-content: center;
-    gap: 15px; padding: 20px;
+    width: 100%;
+    max-width: 1200px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 15px;
+    padding: 20px;
 }
-.chat-section { max-width: 1000px !important; flex: 1 1 100%; }
 
-/* 結果表示 */
-.result { font-weight: bold; margin: 10px 0; font-size: 1.1rem; }
-.win { color: var(--grad-start); }
+.chat-section {
+    max-width: 1000px !important;
+    flex: 1 1 100%;
+}
+
+/* ============================
+   9. 結果表示
+============================ */
+.result {
+    font-weight: bold;
+    margin: 10px 0;
+    font-size: 1.1rem;
+}
+
+.win { color: #ffb300; }
 .lose { color: #ff4d6a; }
 </style>
 </head>
@@ -829,6 +990,7 @@ socket.on('chat_history', (msgs) => {
 </script>
 </body>
 </html>
+
 
 
 
