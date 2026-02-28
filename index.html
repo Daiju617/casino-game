@@ -419,7 +419,7 @@ main {
 <body>
 
 <div id="loginOverlay">
-    <div style="width:320px; background: #1a1a1a; padding: 25px; border-top: 4px solid var(--accent-green);">
+    <div class="section" style="width:320px; border-top: 4px solid var(--accent-green); background: #1a1a1a;">
         <h2 style="text-align:center; color:var(--accent-green);">SYSTEM ACCESS</h2>
         <div style="margin-top:20px;">
             <input type="text" id="uName" placeholder="PLAYER NAME" style="width:100%; margin-bottom:10px; background:#000; border:1px solid #444; color:#00ff00; padding:10px;">
@@ -939,7 +939,6 @@ socket.on('hl_collect_success', d => {
 });
 
     if(d.newChips !== undefined) updateChips(d.newChips);
-});
 
     socket.on('hl_collect_success', d => {
     showMegaResult(true, d.winAmount);
@@ -1141,6 +1140,7 @@ socket.on('chat_history', (msgs) => {
 <div id="game-result-overlay"></div>
 </body>
 </html>
+
 
 
 
