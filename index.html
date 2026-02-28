@@ -44,27 +44,43 @@ body {
     100% { background-position: 50% 120%; }
 }
 
-/* 🔥 火の粉レイヤー（ノイズ除去版） */
+/* 🔥 火の粉レイヤー（金玉地獄・脱出版） */
 body::before {
     content: "";
     position: fixed;
     inset: 0;
     pointer-events: none;
-    background-image:
-        radial-gradient(circle, rgba(255,150,0,0.8) 0%, rgba(255,80,0,0) 70%),
-        radial-gradient(circle, rgba(255,200,0,0.7) 0%, rgba(255,80,0,0) 70%);
+    z-index: -1; /* これでログイン画面の下に潜り込ませる */
     
-    /* ↓ ここを大きくする！4pxだと砂嵐になります */
-    background-size: 150px 150px, 250px 250px; 
+    /* 粒の数を減らし、一つ一つを「光の粉」にする */
+    background-image: 
+        radial-gradient(1px 1px at 10% 20%, rgba(255, 150, 0, 0.8), transparent),
+        radial-gradient(2px 2px at 50% 50%, rgba(255, 100, 0, 0.5), transparent),
+        radial-gradient(1.5px 1.5px at 80% 80%, rgba(255, 200, 0, 0.6), transparent);
     
-    background-repeat: repeat;
-    animation: sparks 10s linear infinite; /* 速度も少しゆっくりに */
-    opacity: 0.4;
+    background-size: 1000px 1000px; /* ここを巨大にするのがポイント！ */
+    animation: sparks 20s linear infinite;
+    opacity: 0.6;
 }
 
 @keyframes sparks {
-    0% { background-position: 0 0; }
-    100% { background-position: -50px -1000px; } /* 上に昇っていく感じ */
+    0% { transform: translateY(0); }
+    100% { transform: translateY(-1000px); }
+}
+
+       /* ログイン画面を最前面に、かつ火の粉に邪魔させない */
+.login-section {
+    position: relative;
+    z-index: 100; 
+    margin-top: 50px !important; /* 少し下げて余裕を持たせる */
+}
+
+/* ゲーム画面全体を整える */
+main {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
 }
 /* ============================
    2. パネル・カード
@@ -991,6 +1007,7 @@ socket.on('chat_history', (msgs) => {
 </script>
 </body>
 </html>
+
 
 
 
