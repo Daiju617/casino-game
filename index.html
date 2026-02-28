@@ -423,22 +423,22 @@ main {
 </head>
 <body>
 
-<div id="game-result-overlay"></div>
-
-<div id="loginOverlay">
-    <div class="section" style="width:320px; border-top: 4px solid #00ff66; background: #1a1a1a; padding: 25px; position: relative; z-index: 1000001;">
-        <h2 style="color:#00ff66; text-align:center; margin-bottom:20px;">SYSTEM ACCESS</h2>
+<div id="loginOverlay" style="position:fixed; inset:0; background:#000; z-index:999999; display:flex; align-items:center; justify-content:center;">
+    <div style="width:320px; border-top: 4px solid #00ff66; background: #1a1a1a; padding: 25px; text-align:center;">
+        <h2 style="color:#00ff66; margin-bottom:20px;">SYSTEM ACCESS</h2>
         
         <input type="text" id="uName" placeholder="PLAYER NAME" style="width:100%; margin-bottom:10px; background:#000; border:1px solid #444; color:#00ff00; padding:12px;">
         <input type="password" id="uPass" placeholder="PASSWORD" style="width:100%; margin-bottom:20px; background:#000; border:1px solid #444; color:#00ff00; padding:12px;">
         
-        <button type="button" onclick="login()" style="width:100%; background:#00ff66; color:#000; font-weight:bold; padding:15px; cursor:pointer; border:none;">
+        <button type="button" onclick="login()" style="width:100%; background:#00ff66; color:#000; font-weight:bold; padding:15px; cursor:pointer; border:none; display:block;">
             ACCESS SYSTEM
         </button>
         
-        <p id="err" style="color:#ff4d6a; font-size:0.8rem; margin-top:15px; text-align:center; min-height:1.2em;"></p>
+        <p id="err" style="color:#ff4d6a; font-size:0.8rem; margin-top:15px; min-height:1.2em;"></p>
     </div>
 </div>
+
+<div id="game-result-overlay"></div>
 
 <header>
     <h1><span>YAWATA</span> CASINO</h1>
@@ -1151,6 +1151,7 @@ socket.on('chat_history', (msgs) => {
 </script>
 </body>
 </html>
+
 
 
 
