@@ -926,6 +926,8 @@ socket.on('hl_result', d => {
         document.getElementById('hlInit').style.display = 'flex';
         document.getElementById('hlActions').style.display = 'none';
     }
+    } // ← if (d.win === true) を閉じる
+); // ← socket.on('hl_result', ... を閉じる
 
 // 760行目付近：ここから差し替え
 socket.on('hl_collect_success', d => {
@@ -1139,6 +1141,7 @@ socket.on('chat_history', (msgs) => {
 <div id="game-result-overlay"></div>
 </body>
 </html>
+
 
 
 
