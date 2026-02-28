@@ -68,23 +68,31 @@ body::before {
     100% { transform: translateY(-1000px); }
 }
 
-.login-section {
+/* 1. クラス名(.login-section)ではなく、HTMLにあるID名(#loginOverlay)に合わせる */
+#loginOverlay {
     display: flex; 
     flex-direction: column;
     align-items: center;
     justify-content: center;
 
-    /* 👇 これを追加・上書き */
-    position: absolute; 
+    /* 2. 「タイトルの上」に出ないように全画面固定にする */
+    position: fixed; 
     top: 0;
     left: 0;
-    width: 100%;
-    height: 100vh; /* 画面いっぱいの高さ */
-    z-index: 9999;  /* タイトルより手前に持ってくる */
-    background: var(--bg-dark); /* 下にあるタイトルを隠す */
+    width: 100vw;
+    height: 100vh;
+    z-index: 99999; 
+    background-color: var(--bg-dark) !important; /* 背景を真っ暗にして下を隠す */
 }
-/* ログインに成功して非表示（display: none）になったら、下のゲームが出る */
 
+/* 3. 中にあるカード(class="section")のデザイン */
+#loginOverlay .section {
+    background: rgba(20, 10, 5, 0.95) !important;
+    border: 1px solid #444 !important;
+    border-top: 4px solid #ff6a00 !important; /* 上だけオレンジの太線 */
+    padding: 30px !important;
+    box-shadow: 0 0 50px rgba(255, 80, 0, 0.3);
+}
 /* ゲーム画面全体を整える */
 main {
     width: 100%;
@@ -1019,6 +1027,7 @@ socket.on('chat_history', (msgs) => {
 </script>
 </body>
 </html>
+
 
 
 
