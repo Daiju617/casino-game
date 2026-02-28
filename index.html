@@ -927,22 +927,21 @@ socket.on('hl_result', d => {
         document.getElementById('hlActions').style.display = 'none';
     }
 
-    // 3. チップデータの反映（ここがエラーの箇所）
+// 760行目付近：ここから差し替え
+socket.on('hl_collect_success', d => {
+    showMegaResult(true, d.winAmount);
+    
+    // UIを初期状態に戻す
+    const hlInit = document.getElementById('hlInit');
+    const hlActions = document.getElementById('hlActions');
+    if (hlInit) hlInit.style.display = 'flex';
+    if (hlActions) hlActions.style.display = 'none';
+    
+    // チップの反映をこの「中」に入れる
     if(d.newChips !== undefined) {
         updateChips(d.newChips);
     }
-}); // ← カッコの閉じ忘れがないか確認
-
-// 利確（COLLECT）ボタンを押した時
-socket.on('hl_collect_success', d => {
-    showMegaResult(true, d.winAmount); // 「勝利 ○○獲得」を表示
-});
-
-    if(d.newChips !== undefined) updateChips(d.newChips);
-
-    socket.on('hl_collect_success', d => {
-    showMegaResult(true, d.winAmount);
-});
+}); // 773行目：ここで終わる
     
 let isCrashing = false;
 let currentMult = 1.0;
@@ -1140,6 +1139,7 @@ socket.on('chat_history', (msgs) => {
 <div id="game-result-overlay"></div>
 </body>
 </html>
+
 
 
 
