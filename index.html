@@ -44,27 +44,28 @@ body {
     100% { background-position: 50% 120%; }
 }
 
-/* 🔥 火の粉レイヤー */
+/* 🔥 火の粉レイヤー（ノイズ除去版） */
 body::before {
     content: "";
     position: fixed;
     inset: 0;
     pointer-events: none;
     background-image:
-        radial-gradient(circle, rgba(255,150,0,0.8) 0%, rgba(255,80,0,0) 60%),
-        radial-gradient(circle, rgba(255,200,0,0.7) 0%, rgba(255,80,0,0) 60%),
-        radial-gradient(circle, rgba(255,120,0,0.6) 0%, rgba(255,80,0,0) 60%);
-    background-size: 4px 4px, 3px 3px, 2px 2px;
+        radial-gradient(circle, rgba(255,150,0,0.8) 0%, rgba(255,80,0,0) 70%),
+        radial-gradient(circle, rgba(255,200,0,0.7) 0%, rgba(255,80,0,0) 70%);
+    
+    /* ↓ ここを大きくする！4pxだと砂嵐になります */
+    background-size: 150px 150px, 250px 250px; 
+    
     background-repeat: repeat;
-    animation: sparks 3s linear infinite;
-    opacity: 0.35;
+    animation: sparks 10s linear infinite; /* 速度も少しゆっくりに */
+    opacity: 0.4;
 }
 
 @keyframes sparks {
-    0% { transform: translateY(0); }
-    100% { transform: translateY(-120px); }
+    0% { background-position: 0 0; }
+    100% { background-position: -50px -1000px; } /* 上に昇っていく感じ */
 }
-
 /* ============================
    2. パネル・カード
 ============================ */
@@ -990,6 +991,7 @@ socket.on('chat_history', (msgs) => {
 </script>
 </body>
 </html>
+
 
 
 
