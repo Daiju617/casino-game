@@ -423,24 +423,20 @@ main {
 </head>
 <body>
 
-    <div id="game-result-overlay"></div>
+<div id="game-result-overlay"></div>
 
 <div id="loginOverlay">
-    <div id="game-result-overlay"></div>
-
-    <div class="section" style="width:320px; border-top: 4px solid #00ff66; background: #1a1a1a; padding: 25px; box-shadow: 0 0 50px rgba(0,0,0,0.8); z-index: 1000000;">
-        <h2 style="color:#00ff66; text-align:center; letter-spacing: 2px; margin-bottom:20px; font-family: 'Noto Sans JP', sans-serif !important;">SYSTEM ACCESS</h2>
+    <div class="section" style="width:320px; border-top: 4px solid #00ff66; background: #1a1a1a; padding: 25px; position: relative; z-index: 1000001;">
+        <h2 style="color:#00ff66; text-align:center; margin-bottom:20px;">SYSTEM ACCESS</h2>
         
-        <div style="margin-top:20px;">
-            <input type="text" id="uName" placeholder="PLAYER NAME" style="width:100%; margin-bottom:10px; background:#000; border:1px solid #444; color:#00ff00; padding:12px; outline: none;">
-            <input type="password" id="uPass" placeholder="PASSWORD" style="width:100%; margin-bottom:20px; background:#000; border:1px solid #444; color:#00ff00; padding:12px; outline: none;">
-            
-            <button type="button" onclick="login()" style="width:100%; background:#00ff66; color:#000; font-weight:bold; padding:15px; cursor:pointer; border:none; text-transform:uppercase; letter-spacing:1px;">
-                ACCESS SYSTEM
-            </button>
-            
-            <p id="err" style="color:#ff4d6a; font-size:0.8rem; margin-top:15px; text-align:center; min-height:1.2em;"></p>
-        </div>
+        <input type="text" id="uName" placeholder="PLAYER NAME" style="width:100%; margin-bottom:10px; background:#000; border:1px solid #444; color:#00ff00; padding:12px;">
+        <input type="password" id="uPass" placeholder="PASSWORD" style="width:100%; margin-bottom:20px; background:#000; border:1px solid #444; color:#00ff00; padding:12px;">
+        
+        <button type="button" onclick="login()" style="width:100%; background:#00ff66; color:#000; font-weight:bold; padding:15px; cursor:pointer; border:none;">
+            ACCESS SYSTEM
+        </button>
+        
+        <p id="err" style="color:#ff4d6a; font-size:0.8rem; margin-top:15px; text-align:center; min-height:1.2em;"></p>
     </div>
 </div>
 
@@ -1155,6 +1151,7 @@ socket.on('chat_history', (msgs) => {
 </script>
 </body>
 </html>
+
 
 
 
