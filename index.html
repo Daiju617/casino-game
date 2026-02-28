@@ -701,32 +701,38 @@ function stopCrashLocal(msg) {
 function betR(type) {
     const betInput = document.getElementById('roulette-bet');
     const amount = parseInt(betInput.value);
+    const numInput = document.getElementById('roulette-num'); // 追加
+
     if (isNaN(amount) || amount <= 0) return alert("賭け金を入力してください");
 
+    // サーバーに送る「タイプ」を調整
+    let sendType = type;
+    if (type === 'number') {
+        const chosenNum = parseInt(numInput.value);
+        if (isNaN(chosenNum) || chosenNum < 0 || chosenNum > 36) return alert("0〜36の数字を入れてください");
+        sendType = 'num_' + chosenNum; // サーバーが期待する形式 "num_21" 等にする
+    }
+
     const ball = document.getElementById('roulette-ball');
-    const wheel = document.getElementById('roulette-wheel'); // 色を変える対象
+    const wheel = document.getElementById('roulette-wheel');
     
     let count = 0;
     let timer = setInterval(() => {
         const tempNum = Math.floor(Math.random() * 37);
         ball.innerText = tempNum;
-
-        // --- ここで色をちかちかさせる ---
-        // countが偶数なら赤、奇数なら黒にする（これで交互に見える）
         if (count % 2 === 0) {
-            wheel.style.backgroundColor = "#aa0000"; // 赤
-            wheel.style.borderColor = "#ff0000";
+            wheel.style.setProperty('background-color', '#ff0000', 'important');
         } else {
-            wheel.style.backgroundColor = "#000000"; // 黒
-            wheel.style.borderColor = "#444444";
+            wheel.style.setProperty('background-color', '#000000', 'important');
         }
-
         count++;
+
         if (count > 20) {
             clearInterval(timer);
-            // ※最終的な結果と色はサーバーからの socket.on で上書きされます
+            // ★ここでサーバーに送信！
+            socket.emit('roulette_bet', { bet: amount, type: sendType });
         }
-    }, 50); // 0.05秒ごとにちかちか
+    }, 50);
 }
 
 // 判定用の赤数字リスト（これがないと「赤」が判定できません）
@@ -734,27 +740,37 @@ const RED_NUMBERS = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 
 
 socket.on('roulette_result', (data) => {
     const ball = document.getElementById('roulette-ball');
-    const wheel = document.getElementById('roulette-wheel'); // 外枠
+    const wheel = document.getElementById('roulette-wheel');
     const num = data.resultNumber;
-    
-    // 数字を更新
+
+    // 1. 数字を更新
     ball.innerText = num;
 
-    // --- ここで「見た目の色」を変える ---
+    // 2. 「見た目の色」と「枠」の処理（端折らず全部入り！）
     if (num === 0) {
-        wheel.style.backgroundColor = "#008800"; // 緑
+        wheel.style.setProperty('background-color', '#008800', 'important');
         wheel.style.borderImage = "none"; 
         wheel.style.borderColor = "#00ff00";
     } else if (RED_NUMBERS.includes(num)) {
-        wheel.style.backgroundColor = "#aa0000"; // 赤
+        wheel.style.setProperty('background-color', '#aa0000', 'important');
         wheel.style.borderImage = "none";
         wheel.style.borderColor = "#ff0000";
     } else {
-        wheel.style.backgroundColor = "#000000"; // 黒
+        wheel.style.setProperty('background-color', '#000000', 'important');
         wheel.style.borderImage = "none";
         wheel.style.borderColor = "#444444";
     }
 
+    // 3. 【重要】チップの更新処理（これが抜けていたから増えなかった）
+    if (data.newChips !== undefined) {
+        // 画面上のチップを表示している要素（例：#user-chips や #balance）を書き換える
+        const chipEl = document.getElementById('user-chips') || document.getElementById('balance');
+        if (chipEl) {
+            chipEl.innerText = data.newChips;
+        }
+    }
+
+    // 4. アラート（演出の最後に出る）
     if (data.isWin) {
         alert(`勝利！ ${data.payout}枚獲得！`);
     }
@@ -813,6 +829,7 @@ socket.on('chat_history', (msgs) => {
 </script>
 </body>
 </html>
+
 
 
 
