@@ -950,6 +950,11 @@ let isCrashing = false;
 let currentMult = 1.0;
 let crashInt;
 
+    // コレクト（利確）ボタンの中身
+function hlCollect() {
+    socket.emit('hl_collect');
+}
+
 // --- CRASH ---
 function handleCrashAction() {
     const btn = document.getElementById('crash-action-btn');
@@ -1142,6 +1147,7 @@ socket.on('chat_history', (msgs) => {
 <div id="game-result-overlay"></div>
 </body>
 </html>
+
 
 
 
