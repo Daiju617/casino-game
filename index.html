@@ -950,8 +950,8 @@ let isCrashing = false;
 let currentMult = 1.0;
 let crashInt;
 
-    // コレクト（利確）ボタンの中身
-function hlCollect() {
+// 【修正後】
+function collectHL() { // ★ここを collectHL に変更するだけ！
     socket.emit('hl_collect');
 }
 
@@ -1155,6 +1155,7 @@ socket.on('chat_history', (msgs) => {
 <div id="game-result-overlay"></div>
 </body>
 </html>
+
 
 
 
