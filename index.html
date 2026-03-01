@@ -916,6 +916,8 @@ socket.on('hl_result', d => {
         showMegaResult(true, "成功！"); 
         res.textContent = "成功！継続中...";
         res.className = "result win";
+
+        document.getElementById('hlActions').style.display = 'flex';
     } else {
         // 失敗（負け）時：赤の演出
         showMegaResult(false, bet);
@@ -1141,6 +1143,7 @@ socket.on('chat_history', (msgs) => {
 <div id="game-result-overlay"></div>
 </body>
 </html>
+
 
 
 
