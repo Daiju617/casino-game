@@ -35,8 +35,8 @@ mongoose.connect(MONGO_URI)
 const User = mongoose.model('User', new mongoose.Schema({
     name: { type: String, required: true },
     password: { type: String, required: true },
-    chips: { type: Number, default: 1000 },
-    bank: { type: Number, default: 0 },
+    chips: { type: String, default: "1000" }, // 文字列にする
+    bank: { type: String, default: "0" },     // 文字列にする
     ip: { type: String },
     lastLogin: { type: Date, default: Date.now }
 }));
@@ -77,10 +77,11 @@ const getHLValue = (rank) => {
 
 let bjGames = {};
 
-// --- 通信ロジック ---
+// 81行目付近
 const broadcastRanking = async () => {
     try {
-        const topUsers = await User.find().sort({ chips: -1 }).limit(10);
+        // collationを使用して文字列を数値順に並べる
+        const topUsers = await User.find().sort({ chips: -1 }).limit(10).collation({ locale: "en_US", numericOrdering: true });
         io.emit('update_ranking', topUsers.map(u => ({ name: u.name, chips: u.chips })));
     } catch (e) { console.error("Ranking Error:", e); }
 };
@@ -132,47 +133,60 @@ io.on('connection', (socket) => {
         io.emit('broadcast', { userName: socket.data.userName, message: msg, isDebtor: user?.bank < 0 });
     });
 
-    // ATM
-    socket.on('atm_request', async ({ amount, type }) => {
-        const user = await User.findOne({ name: socket.data.userName });
-        if (!user || amount <= 0) return;
-        if (type === 'deposit' && user.chips >= amount) {
-            user.chips -= amount; user.bank += amount;
-        } else if (type === 'withdraw' && user.bank - amount >= -10000) {
-            user.chips += amount; user.bank -= amount;
-        }
-        await user.save();
-        socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
-        broadcastRanking();
-    });
+// 129行目付近
+socket.on('atm_request', async ({ amount, type }) => {
+    const user = await User.findOne({ name: socket.data.userName });
+    if (!user || amount <= 0) return;
 
-    // スロット
-    socket.on('spin_request', async ({ bet }) => {
-        const user = await User.findOne({ name: socket.data.userName });
-        if (!user || user.chips < bet) return;
-        const isWin = Math.random() < 0.02;
-        const winAmount = isWin ? bet * 50 : 0;
-        user.chips = user.chips - bet + winAmount;
-        await user.save();
-        socket.emit('spin_result', { result: isWin ? ["7️⃣","7️⃣","7️⃣"] : ["🍋","🍒","🍉"], win: winAmount, newChips: user.chips });
-        broadcastRanking();
-    });
+    let bChips = BigInt(user.chips);
+    let bBank = BigInt(user.bank);
+    let bAmount = BigInt(amount);
 
-    // ハイアンドロー
-    socket.on('hl_start', async (data) => {
-        const user = await User.findOne({ name: socket.data.userName });
-        const bet = parseInt(data?.bet || 100);
-        if (!user || user.chips < bet || bet <= 0) return;
-        user.chips -= bet; await user.save();
-        const deck = createDeck();
-        socket.data.hlPending = bet;
-        socket.data.hlCount = 0;
-        socket.data.hlDeck = deck;
-        const firstCard = deck.pop();
-        socket.data.hlCurrent = firstCard;
-        socket.emit('hl_setup', { currentCard: firstCard });
-        socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
+    if (type === 'deposit' && bChips >= bAmount) {
+        user.chips = (bChips - bAmount).toString();
+        user.bank = (bBank + bAmount).toString();
+    } else if (type === 'withdraw' && (bBank - bAmount) >= BigInt(-10000)) {
+        user.chips = (bChips + bAmount).toString();
+        user.bank = (bBank - bAmount).toString();
+    }
+    await user.save();
+    socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
+    broadcastRanking();
+});
+
+// 144行目付近
+socket.on('spin_request', async ({ bet }) => {
+    const user = await User.findOne({ name: socket.data.userName });
+    if (!user || BigInt(user.chips) < BigInt(bet)) return;
+
+    const isWin = Math.random() < 0.02;
+    const winAmount = isWin ? BigInt(bet) * BigInt(50) : BigInt(0);
+    
+    user.chips = (BigInt(user.chips) - BigInt(bet) + winAmount).toString();
+    await user.save();
+
+    socket.emit('spin_result', { 
+        result: isWin ? ["7️⃣","7️⃣","7️⃣"] : ["🍋","🍒","🍉"], 
+        win: winAmount.toString(), 
+        newChips: user.chips 
     });
+    broadcastRanking();
+});
+
+// 155行目付近 (hl_start)
+socket.on('hl_start', async (data) => {
+    const user = await User.findOne({ name: socket.data.userName });
+    const bet = BigInt(data?.bet || 100);
+    if (!user || BigInt(user.chips) < bet || bet <= 0n) return;
+
+    user.chips = (BigInt(user.chips) - bet).toString();
+    await user.save();
+    
+    // hlPendingはメモリ保持なのでBigIntのまま扱う
+    socket.data.hlPending = bet; 
+    // ...略...
+    socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
+});
 
     socket.on('hl_guess', async (data) => {
         if (!socket.data.hlCurrent || !socket.data.hlDeck) return;
@@ -191,16 +205,17 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('hl_collect', async () => {
-        const user = await User.findOne({ name: socket.data.userName });
-        if (user && socket.data.hlPending > 0) {
-            user.chips += socket.data.hlPending;
-            await user.save();
-            socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
-            socket.data.hlPending = 0;
-            broadcastRanking();
-        }
-    });
+// 184行目付近 (hl_collect)
+socket.on('hl_collect', async () => {
+    const user = await User.findOne({ name: socket.data.userName });
+    if (user && socket.data.hlPending > 0n) {
+        user.chips = (BigInt(user.chips) + BigInt(socket.data.hlPending)).toString();
+        await user.save();
+        socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
+        socket.data.hlPending = 0n;
+        broadcastRanking();
+    }
+});
 
     // --- クラッシュ用：次の爆発倍率を決定する関数 ---
 const getCrashPoint = () => {
@@ -213,27 +228,27 @@ const getCrashPoint = () => {
 // --- ルーレット用：当選番号を決める (0-36) ---
 const getRouletteResult = () => Math.floor(Math.random() * 37);
 
-    // 【クラッシュ】ベット受付
-    socket.on('crash_bet', async ({ bet }) => {
-        const user = await User.findOne({ name: socket.data.userName });
-        if (!user || user.chips < bet || bet <= 0) return;
+// 209行目付近 (crash_bet)
+socket.on('crash_bet', async ({ bet }) => {
+    const user = await User.findOne({ name: socket.data.userName });
+    if (!user || BigInt(user.chips) < BigInt(bet) || bet <= 0) return;
 
-        user.chips -= bet;
-        await user.save();
+    user.chips = (BigInt(user.chips) - BigInt(bet)).toString();
+    await user.save();
 
         const crashPoint = getCrashPoint();
         socket.emit('crash_start', { bet, crashPoint });
         socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
     });
 
-// 【クラッシュ】利確（キャッシュアウト）
-    socket.on('crash_cashout', async ({ bet, multiplier }) => {
-        const user = await User.findOne({ name: socket.data.userName });
-        if (!user) return;
+socket.on('crash_cashout', async ({ bet, multiplier }) => {
+    const user = await User.findOne({ name: socket.data.userName });
+    if (!user) return;
 
-        const winAmount = Math.floor(bet * multiplier);
-        user.chips += winAmount;
-        await user.save();
+    // 倍率計算は一旦Numberで行い、最後にBigIntに戻す
+    const winAmount = BigInt(Math.floor(Number(bet) * multiplier));
+    user.chips = (BigInt(user.chips) + winAmount).toString();
+    await user.save();
         
         sendBotMsg(`${socket.data.userName} が ${multiplier.toFixed(2)}x で利確！ +${winAmount}枚`);
 
@@ -242,12 +257,13 @@ const getRouletteResult = () => Math.floor(Math.random() * 37);
     });
 
     // 【ルーレット】ベット処理
-    socket.on('roulette_bet', async ({ bet, type }) => {
-        const user = await User.findOne({ name: socket.data.userName });
-        if (!user || user.chips < bet || bet <= 0) return;
+// 235行目付近
+socket.on('roulette_bet', async ({ bet, type }) => {
+    const user = await User.findOne({ name: socket.data.userName });
+    if (!user || BigInt(user.chips) < BigInt(bet) || bet <= 0) return;
 
-        user.chips -= bet;
-        await user.save();
+    user.chips = (BigInt(user.chips) - BigInt(bet)).toString();
+    await user.save();
 
         const resultNumber = getRouletteResult();
         const redNumbers = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36];
@@ -263,11 +279,12 @@ const getRouletteResult = () => Math.floor(Math.random() * 37);
             if (chosen === resultNumber) { isWin = true; payout = bet * 36; }
         }
 
-        if (isWin) {
-            user.chips += payout;
-            await user.save();
-            sendBotMsg(`🎉 【ルーレット】 ${user.name} が当選！ ${payout}枚獲得！`);
-        }
+if (isWin) {
+        const bPayout = BigInt(payout);
+        user.chips = (BigInt(user.chips) + bPayout).toString();
+        await user.save();
+        sendBotMsg(`🎉 【ルーレット】 ${user.name} が当選！ ${bPayout.toString()}枚獲得！`);
+    }
 
         socket.emit('roulette_result', { resultNumber, isWin, payout, newChips: user.chips });
         socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
@@ -301,10 +318,12 @@ const getRouletteResult = () => Math.floor(Math.random() * 37);
             const users = await User.find().sort({ chips: -1 });
             socket.emit('admin_remote_data', { type: 'user_list', users });
         }
-        if (data.type === 'update_chips') {
-            await User.findOneAndUpdate({ name: data.target }, { chips: data.amount });
-            broadcastRanking();
-        }
+// 284行目付近
+if (data.type === 'update_chips') {
+    // 文字列として更新
+    await User.findOneAndUpdate({ name: data.target }, { chips: data.amount.toString() });
+    broadcastRanking();
+}
         if (data.type === 'ban_user') {
             await User.deleteOne({ name: data.target });
             broadcastRanking();
@@ -317,6 +336,7 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, "0.0.0.0", () => {
     console.log(`🚀 Server running on port ${PORT}`);
 });
+
 
 
 
