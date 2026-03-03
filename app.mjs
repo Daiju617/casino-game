@@ -173,7 +173,6 @@ socket.on('spin_request', async ({ bet }) => {
     broadcastRanking();
 });
 
-// 155行目付近 (hl_start)
 socket.on('hl_start', async (data) => {
     const user = await User.findOne({ name: socket.data.userName });
     const bet = BigInt(data?.bet || 100);
@@ -182,37 +181,45 @@ socket.on('hl_start', async (data) => {
     user.chips = (BigInt(user.chips) - bet).toString();
     await user.save();
     
-    // hlPendingはメモリ保持なのでBigIntのまま扱う
-    socket.data.hlPending = bet; 
-    // ...略...
+    // socket.dataに保存する際は、エラー回避のため数値型に戻す
+    socket.data.hlPending = Number(bet); 
+    socket.data.hlCount = 0;
+    const deck = createDeck();
+    socket.data.hlDeck = deck;
+    const firstCard = deck.pop();
+    socket.data.hlCurrent = firstCard;
+
+    socket.emit('hl_setup', { currentCard: firstCard });
     socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
 });
 
-    socket.on('hl_guess', async (data) => {
-        if (!socket.data.hlCurrent || !socket.data.hlDeck) return;
-        const nextCard = socket.data.hlDeck.pop();
-        const curVal = getHLValue(socket.data.hlCurrent.rank);
-        const nextVal = getHLValue(nextCard.rank);
-        const isWin = (data.choice === 'high' && nextVal >= curVal) || (data.choice === 'low' && nextVal <= curVal);
-        if (isWin) {
-            socket.data.hlPending = Math.floor(socket.data.hlPending * 2);
-            socket.data.hlCount++;
-            socket.data.hlCurrent = nextCard;
-            socket.emit('hl_result', { win: true, msg: "WIN!", oldCard: nextCard, pending: socket.data.hlPending, count: socket.data.hlCount });
-        } else {
-            socket.data.hlPending = 0;
-            socket.emit('hl_result', { win: false, msg: "LOSE", oldCard: nextCard, pending: 0 });
-        }
-    });
+socket.on('hl_guess', async (data) => {
+    if (!socket.data.hlCurrent || !socket.data.hlDeck) return;
+    const nextCard = socket.data.hlDeck.pop();
+    const curVal = getHLValue(socket.data.hlCurrent.rank);
+    const nextVal = getHLValue(nextCard.rank);
+    const isWin = (data.choice === 'high' && nextVal >= curVal) || (data.choice === 'low' && nextVal <= curVal);
+    
+    if (isWin) {
+        // BigIntに変換して2倍し、またNumberに戻して保存
+        socket.data.hlPending = Number(BigInt(socket.data.hlPending) * 2n);
+        socket.data.hlCount++;
+        socket.data.hlCurrent = nextCard;
+        socket.emit('hl_result', { win: true, msg: "WIN!", oldCard: nextCard, pending: socket.data.hlPending, count: socket.data.hlCount });
+    } else {
+        socket.data.hlPending = 0;
+        socket.emit('hl_result', { win: false, msg: "LOSE", oldCard: nextCard, pending: 0 });
+    }
+});
 
 // 184行目付近 (hl_collect)
 socket.on('hl_collect', async () => {
     const user = await User.findOne({ name: socket.data.userName });
-    if (user && socket.data.hlPending > 0n) {
+    if (user && socket.data.hlPending > 0) {
         user.chips = (BigInt(user.chips) + BigInt(socket.data.hlPending)).toString();
         await user.save();
         socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
-        socket.data.hlPending = 0n;
+        socket.data.hlPending = 0;
         broadcastRanking();
     }
 });
@@ -336,6 +343,7 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, "0.0.0.0", () => {
     console.log(`🚀 Server running on port ${PORT}`);
 });
+
 
 
 
