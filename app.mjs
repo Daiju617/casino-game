@@ -173,6 +173,88 @@ socket.on('spin_request', async ({ bet }) => {
     broadcastRanking();
 });
 
+    // --- ブラックジャック (復元 & BigInt対応) ---
+    socket.on('bj_start', async (data) => {
+        const user = await User.findOne({ name: socket.data.userName });
+        const bet = BigInt(data?.bet || 100);
+
+        // 所持金チェック (BigIntで比較)
+        if (!user || BigInt(user.chips) < bet || bet <= 0n) return;
+
+        // チップを引く
+        user.chips = (BigInt(user.chips) - bet).toString();
+        await user.save();
+
+        const deck = createDeck();
+        const pCards = [deck.pop(), deck.pop()];
+        const dCards = [deck.pop(), deck.pop()];
+
+        // ゲーム状態の保存 (betはNumberで保持して計算しやすくする)
+        bjGames[socket.id] = {
+            bet: Number(bet),
+            deck: deck,
+            playerCards: pCards,
+            dealerCards: dCards,
+            status: 'playing'
+        };
+
+        socket.emit('bj_update', bjGames[socket.id]);
+        socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
+    });
+
+    socket.on('bj_hit', () => {
+        const game = bjGames[socket.id];
+        if (!game || game.status !== 'playing') return;
+
+        game.playerCards.push(game.deck.pop());
+        if (getBJValue(game.playerCards) > 21) {
+            game.status = 'bust';
+        }
+        socket.emit('bj_update', game);
+    });
+
+    socket.on('bj_stand', async () => {
+        const game = bjGames[socket.id];
+        if (!game || game.status !== 'playing') return;
+
+        // ディーラーのターン (17以上になるまで引く)
+        while (getBJValue(game.dealerCards) < 17) {
+            game.dealerCards.push(game.deck.pop());
+        }
+
+        const pSum = getBJValue(game.playerCards);
+        const dSum = getBJValue(game.dealerCards);
+        const user = await User.findOne({ name: socket.data.userName });
+
+        let result = "";
+        let winMult = 0;
+
+        if (dSum > 21 || pSum > dSum) {
+            result = "WIN!";
+            winMult = 2;
+            // ブラックジャック(21)なら2.5倍などの配当ルールがあればここを調整
+            if (pSum === 21 && game.playerCards.length === 2) winMult = 2.5; 
+        } else if (pSum === dSum) {
+            result = "PUSH (DRAW)";
+            winMult = 1;
+        } else {
+            result = "LOSE";
+            winMult = 0;
+        }
+
+        if (winMult > 0 && user) {
+            const winAmount = BigInt(Math.floor(game.bet * winMult));
+            user.chips = (BigInt(user.chips) + winAmount).toString();
+            await user.save();
+            socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
+            broadcastRanking();
+        }
+
+        game.status = result;
+        socket.emit('bj_update', game);
+        delete bjGames[socket.id];
+    });
+
 socket.on('hl_start', async (data) => {
     const user = await User.findOne({ name: socket.data.userName });
     const bet = BigInt(data?.bet || 100);
@@ -343,6 +425,7 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, "0.0.0.0", () => {
     console.log(`🚀 Server running on port ${PORT}`);
 });
+
 
 
 
