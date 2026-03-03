@@ -851,28 +851,41 @@ function standBJ() {
     socket.emit('bj_stand');
 }
 
+// 【修正箇所：index.html 647行目付近】
 socket.on('bj_update', d => {
-    renderCards('bjPCards', d.player);
-    renderCards('bjDCards', d.dealer);
-    document.getElementById('bjPScore').textContent = d.pSum;
+    // サーバーの項目名 (playerCards / dealerCards) に合わせる
+    renderCards('bjPCards', d.playerCards);
+    renderCards('bjDCards', d.dealerCards);
+    
+    // スコア計算を表示
+    const pSum = getBJValueLocal(d.playerCards); 
+    document.getElementById('bjPScore').textContent = pSum;
 });
 
 socket.on('bj_result', d => {
-    renderCards('bjPCards', d.player);
-    renderCards('bjDCards', d.dealer);
+    renderCards('bjPCards', d.playerCards);
+    renderCards('bjDCards', d.dealerCards);
     
-    const bet = document.getElementById('bjBet').value;
-    const isWin = d.msg.includes("WIN") || d.msg.includes("勝利");
-    
-    // 勝っても負けても中央演出を出す
-    showMegaResult(isWin, isWin ? "配当" : bet);
+    const isWin = d.status === "WIN!";
+    showMegaResult(isWin, isWin ? "配当獲得" : "没収");
 
-    const res = document.getElementById('bjRes');
-    res.textContent = d.msg;
-    updateChips(d.newChips);
+    document.getElementById('bjRes').textContent = d.status;
+    // チップ更新は login_success イベントで行われるため、ここではUIの切り替えのみ
     document.getElementById('bjInit').style.display = 'flex';
     document.getElementById('bjActions').style.display = 'none';
 });
+
+// スコア計算用の補助関数を index.html の script 内に追加
+function getBJValueLocal(cards) {
+    let sum = 0, aces = 0;
+    cards.forEach(c => {
+        if (['J', 'Q', 'K'].includes(c.rank)) sum += 10;
+        else if (c.rank === 'A') { sum += 11; aces++; }
+        else sum += parseInt(c.rank);
+    });
+    while (sum > 21 && aces > 0) { sum -= 10; aces--; }
+    return sum;
+}
 
 // --- High & Low 関連の全ロジック（680行目付近から差し替え） ---
 
@@ -1136,6 +1149,7 @@ socket.on('chat_history', (msgs) => {
 <div id="game-result-overlay"></div>
 </body>
 </html>
+
 
 
 
