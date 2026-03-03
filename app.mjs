@@ -243,7 +243,7 @@ socket.on('spin_request', async ({ bet }) => {
         }
 
         if (winMult > 0 && user) {
-            const winAmount = BigInt(Math.floor(game.bet * winMult));
+            const winAmount = BigInt(Math.floor(Number(game.bet) * winMult));
             user.chips = (BigInt(user.chips) + winAmount).toString();
             await user.save();
             socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
@@ -381,17 +381,17 @@ if (isWin) {
     });
 
     // クリッカー換金
-    socket.on('exchange_request', async (data) => {
-        const user = await User.findOne({ name: socket.data.userName });
-        const score = parseInt(data.score);
-        if (user && score >= 100) {
-            const added = Math.floor(score / 100);
-            user.chips += added;
-            await user.save();
-            socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
-            broadcastRanking();
-        }
-    });
+socket.on('exchange_request', async (data) => {
+    const user = await User.findOne({ name: socket.data.userName });
+    const score = parseInt(data.score);
+    if (user && score >= 100) {
+        const added = BigInt(Math.floor(score / 100)); // BigIntにする
+        user.chips = (BigInt(user.chips) + added).toString(); // 文字列で足し算
+        await user.save();
+        socket.emit('login_success', { name: user.name, chips: user.chips, bank: user.bank });
+        broadcastRanking();
+    }
+});
 
     // --- 管理者コマンド ---
     socket.on('admin_remote_login', (data) => {
@@ -425,6 +425,7 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, "0.0.0.0", () => {
     console.log(`🚀 Server running on port ${PORT}`);
 });
+
 
 
 
